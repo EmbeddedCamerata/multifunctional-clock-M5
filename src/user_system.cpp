@@ -1,4 +1,5 @@
 #include "../include/utils.h"
+#include <WiFi.h>
 
 #ifdef DEBUG_MODE
 const char *PageStr[4] = {
@@ -11,9 +12,10 @@ const char *PageStr[4] = {
 
 extern System_TypeDef UserSystem;
 TFT_eSprite Disbuff = TFT_eSprite(&M5.Lcd);
+SemaphoreHandle_t lcd_draw_sem = NULL;
 
 /* Functions statement */
-void PageChangRefresh(SystemPage_e new_page);
+void PageChangRefresh(SystemPage_e new_page, bool recreate_sprite=false);
 
 void SystemInit(System_TypeDef *SysAttr)
 {
@@ -36,16 +38,30 @@ void SystemInit(System_TypeDef *SysAttr)
 		Serial.print("IMU init error:");Serial.println(rc);
 	}
 
-	Disbuff.fillRect(0, 0, TFT_HEIGHT, TFT_WIDTH, TFT_BLACK);
-    Disbuff.setTextSize(2);
-    Disbuff.setCursor(Disbuff.width()/2 - Disbuff.textWidth("Hello World")/2, Disbuff.height()/2 - Disbuff.fontHeight()/2);
-    Disbuff.setTextColor(TFT_RED);
-    Disbuff.printf("Hello World");
-    Disbuff.pushSprite(0, 0);
+	// 5. WiFi
+	Serial.printf("Connecting to %s", _SSID);
+	WiFi.begin(_SSID, _PASSWORD);
+	while (WiFi.status() != WL_CONNECTED) {  // If the wifi connection fails.  若wifi未连接成功
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\nConnected!");
+
+	lcd_draw_sem = xSemaphoreCreateMutex();
+	if (lcd_draw_sem == NULL) {
+		Serial.println("Semaphore lcd_draw_sem error!");
+	}
 
 	Serial.println("System init OK");
 
 	delay(500);
+
+	/* Prepare the data */
+	// 1. Get the time and update RTC
+	configTime(8*3600, 3600, ntpServer);  // init and get the time.  初始化并设置NTP
+    UpdateLocalTime();
+    WiFi.disconnect(true);  // Disconnect wifi.  断开wifi连接
+    WiFi.mode(WIFI_OFF);
 }
 
 void PageUpdate(void *arg)
@@ -74,19 +90,52 @@ void PageUpdate(void *arg)
 		}
 
 		if (new_page != UserSystem.SysPage) {
-			/* do page update here */
-			PageChangRefresh(new_page);
+			if (UserSystem.SysPage + new_page == 2 or \
+				UserSystem.SysPage + new_page == 4) {
+				/* No need for recreate sprite */
+				PageChangRefresh(new_page, false);
+			}
+			else {
+				/* Need recreate sprite */
+				PageChangRefresh(new_page, true);
+			}
 			UserSystem.SysPage = new_page;
 		}
 
-		delay(50);
+		vTaskDelay(50 / portTICK_RATE_MS);
 	}
 }
 
-void PageChangRefresh(SystemPage_e new_page)
+void PageChangRefresh(SystemPage_e new_page, bool recreate_sprite)
 {
-	/* Refresh display */
-	// TODO two Disbuff?
+	// if (new_page == PAGE_TEMPERATURE) {
+	// 	M5.Lcd.setRotation(0);
+	// }
+	// else if (new_page == PAGE_CLOCK) {
+	// 	M5.Lcd.setRotation(1);
+	// }
+	// else if (new_page == PAGE_SET_ALARM) {
+	// 	M5.Lcd.setRotation(2);
+	// }
+	// else if (new_page == PAGE_COUNTDOWN) {
+	// 	M5.Lcd.setRotation(3);
+	// }
+
+	xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+
+	if (recreate_sprite) {
+		/* Recreate sprite */
+		if (Disbuff.width() == TFT_HEIGHT) {
+			/* Landscape to vertical */
+			Disbuff.deleteSprite();
+			Disbuff.createSprite(TFT_WIDTH, TFT_HEIGHT);
+		}
+		else {
+			/* Vertical to landscape */
+			Disbuff.deleteSprite();
+			Disbuff.createSprite(TFT_HEIGHT, TFT_WIDTH);
+		}
+	}
 	Disbuff.setTextColor(TFT_WHITE);
 	Disbuff.setTextSize(1);
 
@@ -96,7 +145,7 @@ void PageChangRefresh(SystemPage_e new_page)
 			Disbuff.fillRect(0, 0, TFT_WIDTH, TFT_HEIGHT, TFT_BLACK);
 
 #ifdef DEBUG_MODE
-			Disbuff.setCursor(10, 20);
+			Disbuff.setCursor(100, 120);
 			Disbuff.print(PageStr[new_page]);
 #endif
 			break;
@@ -105,16 +154,16 @@ void PageChangRefresh(SystemPage_e new_page)
 			M5.Lcd.setRotation(1);
 			Disbuff.fillRect(0, 0, TFT_HEIGHT, TFT_WIDTH, TFT_BLACK);
 #ifdef DEBUG_MODE
-			Disbuff.setCursor(40, 20);
+			Disbuff.setCursor(80, 120);
 			Disbuff.print(PageStr[new_page]);
 #endif
 			break;
 		
 		case PAGE_SET_ALARM:
 			M5.Lcd.setRotation(2);
-			Disbuff.fillRect(0, 0, TFT_HEIGHT, TFT_WIDTH, TFT_BLACK);
+			Disbuff.fillRect(0, 0, TFT_WIDTH, TFT_HEIGHT, TFT_BLACK);
 #ifdef DEBUG_MODE
-			Disbuff.setCursor(20, 0);
+			Disbuff.setCursor(120, 0);
 			Disbuff.print(PageStr[new_page]);
 #endif
 			break;
@@ -123,7 +172,7 @@ void PageChangRefresh(SystemPage_e new_page)
 			M5.Lcd.setRotation(3);
 			Disbuff.fillRect(0, 0, TFT_HEIGHT, TFT_WIDTH, TFT_BLACK);
 #ifdef DEBUG_MODE
-			Disbuff.setCursor(20, 0);
+			Disbuff.setCursor(120, 0);
 			Disbuff.print(PageStr[new_page]);
 #endif
 			user_countdown.PageChangeDisplay();
@@ -133,14 +182,14 @@ void PageChangRefresh(SystemPage_e new_page)
 	}
 	
 	Disbuff.pushSprite(0, 0);
+	xSemaphoreGive(lcd_draw_sem);
+#ifdef DEBUG_MODE
 	Serial.println(PageStr[new_page]);
+#endif
 }
 
 void ButtonsUpdate(void *arg)
 {
-	uint8_t user_mins = 0;
-	uint8_t user_secs = 0;
-	
     while (1) {
         M5.update();
 
@@ -155,38 +204,13 @@ void ButtonsUpdate(void *arg)
 				break;
 
 			case PAGE_COUNTDOWN:
-				if (user_countdown.isWorking()) {
-					/* Buttons judgement in working */
+				/* Buttons judgement in working */
+				if (user_countdown.IsWorking()) {
+					// TODO
 				}
+				/* Buttons judgement in idle */
 				else {
-					/* Buttons judgement in idle */
-					if (M5.BtnA.wasReleased()) {
-						/* Short press of BtnA for +1 second */
-						if (user_secs == 59) {
-							user_secs = 0;
-						}
-						user_secs++;
-					}
-					else if (M5.BtnA.wasReleasefor(500)) {
-						/* Long press of BtnA for +10 seconds */
-						if (user_secs >= 50) {
-							user_secs = 0;
-						}
-						user_secs += 10;
-					}
-					else if (M5.BtnB.wasReleased()) {
-						/* Short press of BtnB for +1 minute */
-						if (user_mins == 10) {
-							user_mins = 0;
-						}
-						user_mins++;
-					}
-					else if (M5.BtnB.wasReleasefor(500)) {
-						/* Long press of BtnB for start */
-						user_countdown.Begin(user_mins, user_secs);
-					}
-
-					user_countdown.StaticDisplay(user_mins, user_secs);
+					user_countdown.SetCoundown();
 				}
 				
 				break;
@@ -194,6 +218,6 @@ void ButtonsUpdate(void *arg)
 			default: break;
 		}
 
-		delay(50);
+		vTaskDelay(50 / portTICK_RATE_MS);
     }
 }

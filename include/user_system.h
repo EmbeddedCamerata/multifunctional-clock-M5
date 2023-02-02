@@ -5,14 +5,14 @@
 #include "utils.h"
 
 typedef enum SystemPage {
-    /* Left, Rotation(1) */
-    PAGE_CLOCK, // RTC clock and calibre from WIFI
-    /* Top, Rotation(2) */
+    /* Top, Rotation(0) */
     PAGE_TEMPERATURE,
-    /* Right, Rotation(3) */
-    PAGE_COUNTDOWN,
-    /* Down, Rotation(4) */
-    PAGE_SET_ALARM
+    /* Left landscape, Rotation(1) */
+    PAGE_CLOCK, // Using RTC and WIFI
+    /* Top reversed, Rotation(2) */
+    PAGE_SET_ALARM,
+    /* Right landscape, Rotation(3) */
+    PAGE_COUNTDOWN  // Using hw_timer for counting
 } SystemPage_e;
 
 typedef struct System_Attr {

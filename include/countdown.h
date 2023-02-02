@@ -1,7 +1,6 @@
 #ifndef __COUNTDOWN_H__
 #define __COUNTDOWN_H__
 
-#include <stdint.h>
 #include "esp32-hal-timer.h"
 
 #define COUNTDOWN_DEFAULT_MIN 0x0
@@ -15,14 +14,19 @@ class Countdown {
     void StaticDisplay(uint8_t mins, uint8_t secs);
     void PageChangeDisplay();
     void Update();
+    void SetCoundown();
     void Stop(bool IsShutdown = false);
 
-    bool inline isWorking() {return this->IsWorking;};
+    bool inline IsWorking() {return this->isWorking;};
+
+    uint8_t set_min, set_sec;
 
     private:
-    bool IsWorking;
-    bool NeedRefresh;
-    uint8_t mins, secs;
+    void SetMinuteUpdate();
+
+    bool isWorking;
+    bool needRefresh;
+    uint8_t cur_min, cur_sec;
     
     hw_timer_t *countdown_timer = NULL;
 };

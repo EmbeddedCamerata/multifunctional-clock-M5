@@ -3,12 +3,19 @@
 
 #include <M5StickCPlus.h>
 #include "countdown.h"
+#include "hw_timer.h"
+#include "ntp_time.h"
 #include "user_system.h"
 
 #define DEBUG_MODE
 
-inline void led_heartbeat() {
-    digitalWrite(M5_LED, 1 - digitalRead(M5_LED));
-};
+// const char *ssid = "cfpzr";
+// const char *password = "20000804";
+// const char *ntpServer = "time1.aliyun.com";  // Set the connect NTP server.
+// const long gmtOffset_sec = 8*3600;
+// const int daylightOffset_sec = 3600;
+#define _SSID "cfpzr"
+#define _PASSWORD "20000804"
+#define ntpServer "time1.aliyun.com"
 
 #endif /* __UTILS_H__ */
