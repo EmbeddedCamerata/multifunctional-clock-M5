@@ -14,13 +14,15 @@ hw_timer_t *timer1s(uint8_t num, void (*fn)(void), bool autoreload)
     return timer;
 }
 
-void countdown_update(void *arg)
+hw_timer_t *timer1m(uint8_t num, void (*fn)(void), bool autoreload)
 {
-    TickType_t last_tick = xTaskGetTickCount();
+    hw_timer_t *timer = timerBegin(num, (TIMER_BASE_CLK / 1000000), true);
+    timerStop(timer);
+    timerAttachInterrupt(timer, fn, false);
+    timerAlarmWrite(timer, 60000000, autoreload);
+    timerAlarmEnable(timer); 
+    timerRestart(timer);
+    timerStart(timer);
 
-    while (1) {
-        xTaskDelayUntil(&last_tick, 1000 / portTICK_RATE_MS);
-        digitalWrite(M5_LED, 1 - digitalRead(M5_LED));
-        user_countdown.Update();
-    }
+    return timer;
 }

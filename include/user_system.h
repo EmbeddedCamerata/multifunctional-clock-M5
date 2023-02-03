@@ -1,10 +1,10 @@
 #ifndef __USER_SYSTEM_H__
 #define __USER_SYSTEM_H__
 
-#include <M5StickCPlus.h>
-#include "utils.h"
+#include <time.h>
 
-typedef enum SystemPage {
+typedef enum SysPage
+{
     /* Top, Rotation(0) */
     PAGE_TEMPERATURE,
     /* Left landscape, Rotation(1) */
@@ -12,11 +12,16 @@ typedef enum SystemPage {
     /* Top reversed, Rotation(2) */
     PAGE_SET_ALARM,
     /* Right landscape, Rotation(3) */
-    PAGE_COUNTDOWN  // Using hw_timer for counting
-} SystemPage_e;
+    PAGE_COUNTDOWN, // Using hw_timer for counting
+    PAGE_UNKNOWN
+} SysPage_e;
 
-typedef struct System_Attr {
-    SystemPage_e SysPage;
+typedef struct System_Attr
+{
+    /* System page */
+    SysPage_e SysPage;
+    /* To check the update interval */
+    struct tm LastNTPTime;
 } System_TypeDef;
 
 void SystemInit(System_TypeDef *SysAttr);

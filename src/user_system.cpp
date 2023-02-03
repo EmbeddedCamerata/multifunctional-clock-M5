@@ -11,32 +11,46 @@ const char *PageStr[4] = {
 #endif
 
 extern System_TypeDef UserSystem;
+extern TaskHandle_t xhandle_clock_display_update;
 TFT_eSprite Disbuff = TFT_eSprite(&M5.Lcd);
 SemaphoreHandle_t lcd_draw_sem = NULL;
 
 /* Functions statement */
-void PageChangRefresh(SystemPage_e new_page, bool recreate_sprite=false);
+void PageChangRefresh(SysPage_e new_page);
 
 void SystemInit(System_TypeDef *SysAttr)
 {
+	/*
+		Initialization
+	*/
+	// 1. M5
 	M5.begin();
-
-	/* Initialization */
-	// 1. Set the initial page
-	SysAttr->SysPage = PAGE_CLOCK;
 
 	// 2. LED
 	pinMode(M5_LED, OUTPUT);
+	digitalWrite(M5_LED, HIGH);
 
-	// 3. LCD
-	M5.Lcd.setRotation(1); /* Default, clock */
-	Disbuff.createSprite(TFT_HEIGHT, TFT_WIDTH);
-
-	// 4. IMU
+	// 3. IMU
     int rc = M5.IMU.Init(); /* return 0 is ok, return -1 is unknow */
 	if (rc < 0) {
-		Serial.print("IMU init error:");Serial.println(rc);
+		Serial.printf("IMU init error: %d\n", rc);
+		return;
 	}
+
+	// 4. Sytem page. Self-adaption rotation based on IMU
+#ifdef INITIAL_PAGE_SELF_ADAPTION
+	SysPage_e page;
+	float accX, accY, accZ;
+
+	if ((page = IMUJudge(accX, accY, accZ)) != PAGE_UNKNOWN) {
+		SysAttr->SysPage = page;
+	}
+	else {
+		SysAttr->SysPage = INITIAL_DEFAULT_PAGE;
+	}
+#else
+	SysAttr->SysPage = INITIAL_DEFAULT_PAGE;
+#endif
 
 	// 5. WiFi
 	Serial.printf("Connecting to %s", _SSID);
@@ -47,142 +61,118 @@ void SystemInit(System_TypeDef *SysAttr)
     }
     Serial.println("\nConnected!");
 
+	// 6. Create semaphores
 	lcd_draw_sem = xSemaphoreCreateMutex();
 	if (lcd_draw_sem == NULL) {
 		Serial.println("Semaphore lcd_draw_sem error!");
+		return;
 	}
 
 	Serial.println("System init OK");
-
 	delay(500);
 
-	/* Prepare the data */
-	// 1. Get the time and update RTC
-	configTime(8*3600, 3600, ntpServer);  // init and get the time.  初始化并设置NTP
-    UpdateLocalTime();
-    WiFi.disconnect(true);  // Disconnect wifi.  断开wifi连接
-    WiFi.mode(WIFI_OFF);
+	/*
+		Display the first data based on initial page
+	*/
+	user_NTPclock.Init(SysAttr);
+	user_countdown.Init(SysAttr);
 }
 
 void PageUpdate(void *arg)
 {
+	SysPage_e new_page;
 	float accX, accY, accZ;
-	SystemPage_e new_page = *(SystemPage_e*)arg;
 	
 	while(1) {
 		M5.IMU.getAccelData(&accX, &accY, &accZ);
 
-		if (1 - accX < 0.1) {
-			/* accX approx 1 */
-			new_page = PAGE_CLOCK;
-		}
-		else if (1 + accX < 0.1) {
-			/* accX approx -1 */
-			new_page = PAGE_COUNTDOWN;
-		}
-		else if (1 - accY < 0.1) {
-			/* accY approx 1 */
-			new_page = PAGE_TEMPERATURE;
-		}
-		else if (1 + accY < 0.1) {
-			/* accY approx -1 */
-			new_page = PAGE_SET_ALARM;
-		}
-
-		if (new_page != UserSystem.SysPage) {
-			if (UserSystem.SysPage + new_page == 2 or \
-				UserSystem.SysPage + new_page == 4) {
-				/* No need for recreate sprite */
-				PageChangRefresh(new_page, false);
+		if ((new_page = IMUJudge(accX, accY, accZ)) != PAGE_UNKNOWN) {
+			if (new_page != UserSystem.SysPage) {
+				PageChangRefresh(new_page);
+				UserSystem.SysPage = new_page;
 			}
-			else {
-				/* Need recreate sprite */
-				PageChangRefresh(new_page, true);
-			}
-			UserSystem.SysPage = new_page;
 		}
-
+		
 		vTaskDelay(50 / portTICK_RATE_MS);
 	}
 }
 
-void PageChangRefresh(SystemPage_e new_page, bool recreate_sprite)
+void PageChangRefresh(SysPage_e new_page)
 {
-	// if (new_page == PAGE_TEMPERATURE) {
-	// 	M5.Lcd.setRotation(0);
-	// }
-	// else if (new_page == PAGE_CLOCK) {
-	// 	M5.Lcd.setRotation(1);
-	// }
-	// else if (new_page == PAGE_SET_ALARM) {
-	// 	M5.Lcd.setRotation(2);
-	// }
-	// else if (new_page == PAGE_COUNTDOWN) {
-	// 	M5.Lcd.setRotation(3);
-	// }
-
-	xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-
-	if (recreate_sprite) {
-		/* Recreate sprite */
-		if (Disbuff.width() == TFT_HEIGHT) {
-			/* Landscape to vertical */
-			Disbuff.deleteSprite();
-			Disbuff.createSprite(TFT_WIDTH, TFT_HEIGHT);
-		}
-		else {
-			/* Vertical to landscape */
-			Disbuff.deleteSprite();
-			Disbuff.createSprite(TFT_HEIGHT, TFT_WIDTH);
-		}
-	}
-	Disbuff.setTextColor(TFT_WHITE);
-	Disbuff.setTextSize(1);
-
 	switch (new_page) {
 		case PAGE_TEMPERATURE:
+			/* Leave */
+			user_countdown.Leave();
+			user_NTPclock.Leave();
+
+			/* Suspend Clock display task */
+			if (xhandle_clock_display_update != NULL) {
+				vTaskSuspend(xhandle_clock_display_update);
+			}
+			
+			xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
 			M5.Lcd.setRotation(0);
 			Disbuff.fillRect(0, 0, TFT_WIDTH, TFT_HEIGHT, TFT_BLACK);
 
 #ifdef DEBUG_MODE
-			Disbuff.setCursor(100, 120);
+			Disbuff.setCursor(Disbuff.height()-10, 10);
 			Disbuff.print(PageStr[new_page]);
 #endif
+			Disbuff.pushSprite(0, 0);
+			xSemaphoreGive(lcd_draw_sem);
+
 			break;
 
 		case PAGE_CLOCK:
-			M5.Lcd.setRotation(1);
-			Disbuff.fillRect(0, 0, TFT_HEIGHT, TFT_WIDTH, TFT_BLACK);
-#ifdef DEBUG_MODE
-			Disbuff.setCursor(80, 120);
-			Disbuff.print(PageStr[new_page]);
-#endif
+			/* Leave */
+			user_countdown.Leave();
+
+			user_NTPclock.OnMyPage();
+
+			if (xhandle_clock_display_update != NULL) {
+				vTaskResume(xhandle_clock_display_update);
+			}
+
 			break;
 		
 		case PAGE_SET_ALARM:
+			/* Leave */
+			user_countdown.Leave();
+			user_NTPclock.Leave();
+			/* Suspend Clock display task */
+			if (xhandle_clock_display_update != NULL) {
+				vTaskSuspend(xhandle_clock_display_update);
+			}
+
 			M5.Lcd.setRotation(2);
 			Disbuff.fillRect(0, 0, TFT_WIDTH, TFT_HEIGHT, TFT_BLACK);
 #ifdef DEBUG_MODE
 			Disbuff.setCursor(120, 0);
 			Disbuff.print(PageStr[new_page]);
 #endif
+			Disbuff.pushSprite(0, 0);
+			xSemaphoreGive(lcd_draw_sem);
+
 			break;
 		
 		case PAGE_COUNTDOWN:
-			M5.Lcd.setRotation(3);
-			Disbuff.fillRect(0, 0, TFT_HEIGHT, TFT_WIDTH, TFT_BLACK);
-#ifdef DEBUG_MODE
-			Disbuff.setCursor(120, 0);
-			Disbuff.print(PageStr[new_page]);
-#endif
-			user_countdown.PageChangeDisplay();
+			/* Leave */
+			user_NTPclock.Leave();
+			/*
+				Suspend tasks of other pages
+			*/
+			// 1. Clock display task
+			if (xhandle_clock_display_update != NULL) {
+				vTaskSuspend(xhandle_clock_display_update);
+			}
+
+			/* Tell user_coundown that it is on my page */
+			user_countdown.OnMyPage();
 			break;
 		
 		default: break;
 	}
 	
-	Disbuff.pushSprite(0, 0);
-	xSemaphoreGive(lcd_draw_sem);
 #ifdef DEBUG_MODE
 	Serial.println(PageStr[new_page]);
 #endif
@@ -198,6 +188,13 @@ void ButtonsUpdate(void *arg)
 				break;
 
 			case PAGE_CLOCK:
+				if (M5.BtnA.wasReleased()) {
+				/* Short press of BtnA for update NTP time immediately */
+					user_NTPclock.UpdateNow();
+#ifdef DEBUG_MODE
+        			Serial.println("Button A released");
+#endif
+    			}
 				break;
 			
 			case PAGE_SET_ALARM:
