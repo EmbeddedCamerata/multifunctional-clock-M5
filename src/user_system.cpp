@@ -17,6 +17,7 @@ SemaphoreHandle_t lcd_draw_sem = NULL;
 
 /* Functions statement */
 void PageChangRefresh(SysPage_e new_page);
+void PowerDisplay();
 
 void SystemInit(System_TypeDef *SysAttr)
 {
@@ -195,6 +196,9 @@ void ButtonsUpdate(void *arg)
         			Serial.println("Button A released");
 #endif
     			}
+				if (M5.BtnB.wasReleased()) {
+					PowerDisplay();
+				}
 				break;
 			
 			case PAGE_SET_ALARM:
@@ -217,4 +221,37 @@ void ButtonsUpdate(void *arg)
 
 		vTaskDelay(50 / portTICK_RATE_MS);
     }
+}
+
+void PowerDisplay()
+{
+	int disCharge; // Battery output current
+	float vbat = 0.0;	// Battery voltage value
+	float ibat = 0.0;
+	float bat;	// Current Power
+	int Vaps;	// Battery capacity
+	float temp;	// Battery temperature
+	
+	disCharge = M5.Axp.GetIdischargeData() / 2;	// Need test without serial
+	vbat = M5.Axp.GetBatVoltage();				// 4.19V
+	ibat = M5.Axp.GetBatCurrent();				// Need test without serial
+	bat = M5.Axp.GetBatPower();					// Need test without serial
+	Vaps = M5.Axp.GetVapsData();				// 3567? 
+	temp = M5.Axp.GetTempInAXP192(); 			// 44.00
+
+#ifdef DEBUG_MODE
+	Serial.printf("V/I: %.2f/%.2f\n", vbat, ibat);
+	Serial.printf("Temp: %.2f\n", temp);
+#endif
+
+	xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
+	Disbuff.setTextSize(1);
+	Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH, Disbuff.fontHeight(), TFT_BLACK);
+	Disbuff.setCursor(10, 10);
+	Disbuff.setTextColor(TFT_RED);
+
+	Disbuff.printf("V/I/B: %.2f/%.2f/%.2f\n", vbat, ibat, bat);
+
+	Disbuff.pushSprite(0, 0);
+	xSemaphoreGive(lcd_draw_sem);
 }

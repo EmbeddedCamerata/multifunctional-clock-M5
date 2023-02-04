@@ -24,9 +24,6 @@
 #define TFT_VERTICAL_WIDTH TFT_WIDTH
 #define TFT_VERTICAL_HEIGHT TFT_HEIGHT
 
-// const char *ssid = "cfpzr";
-// const char *password = "20000804";
-// const char *ntpServer = "time1.aliyun.com";  // Set the connect NTP server.
 #define _SSID "cfpzr"
 #define _PASSWORD "20000804"
 

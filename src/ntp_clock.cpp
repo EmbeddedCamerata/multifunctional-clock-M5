@@ -47,8 +47,7 @@ void NTPClock::OnMyPage()
     if (!this->isInited) {
         configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);  // init and get the time.
         
-
-        if (!SyncLocalTime()) {
+        if (!this->SyncLocalTime()) {
             do {
                 _try_time++;
 #ifdef DEBUG_MODE
@@ -59,11 +58,12 @@ void NTPClock::OnMyPage()
 					// TODO Error handle here
 					return;
 				}
-            } while (!SyncLocalTime());
+            } while (!this->SyncLocalTime());
         }
 
-        WiFi.disconnect(true);
-        WiFi.mode(WIFI_OFF);
+        WiFi.setSleep(true);
+        // WiFi.disconnect(true);
+        // WiFi.mode(WIFI_OFF);
 
         xTaskCreate(ClockDisplayTask, "ClockDisplayTask", 1024*2, (void*)0, 6, &xhandle_clock_display_update);
 
@@ -86,6 +86,7 @@ void NTPClock::Leave()
 bool NTPClock::SyncLocalTime()
 {
     struct tm timeinfo;
+
     if (!getLocalTime(&timeinfo)) {  // Return 1 when the time is successfully obtained.
         Serial.println("Failed to obtain time");
         return false;
@@ -146,9 +147,19 @@ void NTPClock::ClockDisplay(int hour, int minute)
 
 void NTPClock::UpdateNow()
 {
+    
     if (!this->SyncLocalTime()) {
         return;
     }
+    
+    xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+    Disbuff.setTextSize(1);
+	Disbuff.fillRect(10, 10, Disbuff.textWidth("OK"), Disbuff.fontHeight(), TFT_BLACK);
+	Disbuff.setCursor(10, 10);
+	Disbuff.print("OK");
+	Disbuff.pushSprite(0, 0);
+	xSemaphoreGive(lcd_draw_sem);
+
 	this->ClockDisplay(this->LastSyncNTPTime.tm_hour, this->LastSyncNTPTime.tm_min);
 }
 
