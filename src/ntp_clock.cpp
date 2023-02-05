@@ -6,19 +6,23 @@ extern SemaphoreHandle_t lcd_draw_sem;
 const char *ntpServer = "time1.aliyun.com";
 const long gmtOffset_sec = 8 * 3600;
 const int daylightOffset_sec = 3600;
-const char *Weekdays[7] =
-    {"Mon", "Tues", "Wed", "Thu", "Wed", "Sat", "Sun"};
-const char *Months[12] =
-    {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+const char *Weekdays[7] = {
+    "Sun", "Mon", "Tues", "Wed", "Thu", "Wed", "Sat"
+};
+const char *Months[12] = {
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+};
 
-TaskHandle_t xhandle_clock_display_update = NULL;
+TaskHandle_t xhandle_clock_display = NULL;
 
 void ClockDisplayTask(void *arg);
+void ClockRegularUpdateTask(void *arg);
 
-NTPClock::NTPClock() :  \
-    isInited(0),        \
-    isOnMyPage(0) {}
+NTPClock::NTPClock(bool DateOnStartup) :   \
+    isInited(0),                           \
+    isOnMyPage(0),                         \
+    isDisplayingDate(DateOnStartup) {}
 
 void NTPClock::Init(System_TypeDef *SysAttr)
 {
@@ -30,9 +34,34 @@ void NTPClock::Init(System_TypeDef *SysAttr)
     this->isInited = true;
 }
 
+void NTPClock::LocalTimeUpdate()
+{
+    struct tm timeinfo;
+    
+    if (!this->SyncLocalTime(&timeinfo)) {
+        return;
+    }
+    
+    if (this->isOnMyPage) {
+        this->DisplayFromNTP(&timeinfo, (TickType_t)10);
+    }
+}
+
+void NTPClock::ButtonsUpdate()
+{
+    if (M5.BtnA.wasReleased()) {
+        /* Short press of BtnA for update NTP time immediately */
+        this->LocalTimeUpdate();
+    }
+    if (M5.BtnB.wasReleased()) {
+        
+    }
+}
+
 void NTPClock::OnMyPage()
 {
     int _try_time = 0;
+    struct tm timeinfo;
 
     this->isOnMyPage = true;
     M5.Lcd.setRotation(PAGE_CLOCK);
@@ -47,30 +76,30 @@ void NTPClock::OnMyPage()
     if (!this->isInited) {
         configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);  // init and get the time.
         
-        if (!this->SyncLocalTime()) {
+        if (!this->SyncLocalTime(&timeinfo)) {
             do {
                 _try_time++;
 #ifdef DEBUG_MODE
                 Serial.printf("Retries: %d/%d\n", _try_time, NTP_UPDATE_RETRY_TIMES);
 #endif
-
 				if (_try_time == NTP_UPDATE_RETRY_TIMES) {
 					// TODO Error handle here
 					return;
 				}
-            } while (!this->SyncLocalTime());
+            } while (!this->SyncLocalTime(&timeinfo));
         }
 
         WiFi.setSleep(true);
         // WiFi.disconnect(true);
         // WiFi.mode(WIFI_OFF);
 
-        xTaskCreate(ClockDisplayTask, "ClockDisplayTask", 1024*2, (void*)0, 6, &xhandle_clock_display_update);
+        xTaskCreate(ClockDisplayTask, "ClockDisplayTask", \
+            1024*2, (void*)0, 6, &xhandle_clock_display);
 
-        this->ClockDisplay(this->LastSyncNTPTime.tm_hour, this->LastSyncNTPTime.tm_min);
+        this->DisplayFromNTP(&timeinfo);
     }
     else {
-        this->ClockDisplayFromRTC();
+        this->DisplayFromRTC(false, (TickType_t)10);
     }
 }
 
@@ -83,84 +112,96 @@ void NTPClock::Leave()
     @brief
         Get NTP time and update LastNTPTime
 */
-bool NTPClock::SyncLocalTime()
+bool NTPClock::SyncLocalTime(struct tm *TimeInfo)
 {
-    struct tm timeinfo;
-
-    if (!getLocalTime(&timeinfo)) {  // Return 1 when the time is successfully obtained.
+    if (!getLocalTime(TimeInfo)) {  // Return 1 when the time is successfully obtained.
         Serial.println("Failed to obtain time");
         return false;
     }
 
-    SetRTC(&timeinfo);
-    this->LastSyncNTPTime = timeinfo;
+    SetRTC(TimeInfo);
+    this->LastSyncTime = mktime(TimeInfo);
     
 #ifdef DEBUG_MODE
-    Serial.println(&timeinfo, "%A, %B %d \n%Y %H:%M:%S");  // Screen prints date and time.
+    Serial.println(TimeInfo, "%A, %B %d \n%Y %H:%M:%S");  // Screen prints date and time.
 #endif
 
     return true;
 }
 
-void NTPClock::ClockDisplayFromRTC()
+void NTPClock::DisplayFromNTP(struct tm *TimeInfo, TickType_t Tick)
 {
-	String _time = "%02d:%02d";
-	RTC_TimeTypeDef TimeStruct;
+    xSemaphoreTake(lcd_draw_sem, Tick);
     
-	M5.Rtc.GetTime(&TimeStruct);
-
-	xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
-	Disbuff.fillRect(TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2,  \
-						TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2,    \
-						Disbuff.textWidth("99:99"), Disbuff.fontHeight(),   \
-						TFT_BLACK);
-	
-	Disbuff.setTextSize(4);
-	Disbuff.setCursor(TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2, \
-						TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2);
-	Disbuff.setTextColor(TFT_RED);
-	Disbuff.printf(_time.c_str(), TimeStruct.Hours, TimeStruct.Minutes);
-	Disbuff.pushSprite(0, 0);
-
-	xSemaphoreGive(lcd_draw_sem);
-}
-
-void NTPClock::ClockDisplay(int hour, int minute)
-{
-	String _time = "%02d:%02d";
-
-	xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-	Disbuff.fillRect(TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2,  \
-						TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2,    \
-						Disbuff.textWidth("99:99"), Disbuff.fontHeight(),   \
-						TFT_BLACK);
-	
-	Disbuff.setTextSize(4);
-	Disbuff.setCursor(TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2, \
-						TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2);
-	Disbuff.setTextColor(TFT_RED);
-	Disbuff.printf(_time.c_str(), hour, minute);
-	Disbuff.pushSprite(0, 0);
-
-	xSemaphoreGive(lcd_draw_sem);
-}
-
-void NTPClock::UpdateNow()
-{
-    
-    if (!this->SyncLocalTime()) {
-        return;
+    this->TimeDisplay(TimeInfo->tm_hour, TimeInfo->tm_min);
+    if (this->isDisplayingDate) {
+        this->DateDisplay(TimeInfo->tm_mon, TimeInfo->tm_wday, TimeInfo->tm_mday);
     }
-    
-    xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-    Disbuff.setTextSize(1);
-	Disbuff.fillRect(10, 10, Disbuff.textWidth("OK"), Disbuff.fontHeight(), TFT_BLACK);
-	Disbuff.setCursor(10, 10);
-	Disbuff.print("OK");
-	Disbuff.pushSprite(0, 0);
-	xSemaphoreGive(lcd_draw_sem);
+	
+    xSemaphoreGive(lcd_draw_sem);
+}
 
-	this->ClockDisplay(this->LastSyncNTPTime.tm_hour, this->LastSyncNTPTime.tm_min);
+void NTPClock::DisplayFromRTC(bool ChimeEnable, TickType_t Tick)
+{
+    RTC_DateTypeDef DateStruct;
+	RTC_TimeTypeDef TimeStruct;
+
+    M5.Rtc.GetTime(&TimeStruct);
+
+	xSemaphoreTake(lcd_draw_sem, Tick);
+    
+    if (ChimeEnable) {
+        if (TimeStruct.Seconds == 0) {
+            this->TimeDisplay(TimeStruct.Hours, TimeStruct.Minutes);
+        }
+    }
+    else {
+        this->TimeDisplay(TimeStruct.Hours, TimeStruct.Minutes);
+    }
+
+    if (this->isDisplayingDate) {
+        M5.Rtc.GetData(&DateStruct);
+        this->DateDisplay(DateStruct.Month, DateStruct.WeekDay, DateStruct.Date);
+    }
+	
+    xSemaphoreGive(lcd_draw_sem);
+}
+
+/*
+    @brief
+        Display time & date(NTPCLOCK_DISPLAY_DATE).
+        TODO AM/PM
+*/
+void NTPClock::TimeDisplay(int hour, int minute)
+{
+    Disbuff.setTextSize(4);
+    Disbuff.fillRect(
+        TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2,   \
+        TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2,        \
+        Disbuff.textWidth("99:99"), Disbuff.fontHeight(),       \
+        TFT_BLACK
+    );
+	
+	Disbuff.setCursor(
+        TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2,   \
+		TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2
+    );
+	
+    Disbuff.setTextColor(TFT_RED);
+	Disbuff.printf("%02d:%02d", hour, minute);
+	Disbuff.pushSprite(0, 0);
+}
+
+void NTPClock::DateDisplay(uint8_t Month, uint8_t Weekday, uint8_t Date)
+{
+    Disbuff.setTextSize(2);
+    Disbuff.fillRect(10, 10, Disbuff.textWidth("Jan. 12 / Tues"), \
+        Disbuff.fontHeight(), TFT_BLACK
+    );
+    Disbuff.setCursor(10, 10);
+    Disbuff.setTextColor(TFT_WHITE);
+    Disbuff.printf("%s. %d / %s", Months[Month], Date, Weekdays[Weekday]);
+    Disbuff.pushSprite(0, 0);
 }
 
 void NTPClock::SetRTC(struct tm *TimeInfo)
@@ -181,23 +222,21 @@ void NTPClock::SetRTC(struct tm *TimeInfo)
 
 void ClockDisplayTask(void *arg)
 {
-    String _time = "%02d:%02d";
-    struct tm CurTimeInfo;
-    RTC_DateTypeDef DateStruct;
-    RTC_TimeTypeDef TimeStruct;
+    int _interval = 0;
 
     while (1) {
-        M5.Rtc.GetTime(&TimeStruct);
-        
-        if (user_NTPclock.IsOnMyPage() and TimeStruct.Seconds == 0) {
-            user_NTPclock.ClockDisplay(TimeStruct.Hours, TimeStruct.Minutes);
-#ifdef DEBUG_MODE
-			Serial.printf("Now %02d:%02d\n", TimeStruct.Hours, TimeStruct.Minutes);
-#endif
-        }
-
         vTaskDelay(1000 / portTICK_RATE_MS);
+        _interval++;
+
+        if (_interval == 60 * NTP_CALIBRATION_INTERVAL) {
+            _interval = 0;
+            User_NTPClock.LocalTimeUpdate();
+        }
+        
+        if (User_NTPClock.IsOnMyPage()) {
+            User_NTPClock.DisplayFromRTC(true, portMAX_DELAY);
+        }
     }
 }
 
-NTPClock user_NTPclock;
+NTPClock User_NTPClock(true);

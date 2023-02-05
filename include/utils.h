@@ -8,6 +8,9 @@
 #include "user_system.h"
 
 #define DEBUG_MODE
+#ifdef DEBUG_MODE
+#define POWER_DISPLAY
+#endif
 
 #define RETRY_TIMES (3)
 #ifdef RETRY_TIMES
@@ -23,6 +26,8 @@
 #define TFT_LANDSCAPE_HEIGHT TFT_WIDTH
 #define TFT_VERTICAL_WIDTH TFT_WIDTH
 #define TFT_VERTICAL_HEIGHT TFT_HEIGHT
+
+#define NTPCLOCK_REGULAR_SYNC
 
 #define _SSID "cfpzr"
 #define _PASSWORD "20000804"

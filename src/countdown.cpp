@@ -2,11 +2,12 @@
 
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t lcd_draw_sem;
-TaskHandle_t xhandle_countdown_update_task = NULL;
+TaskHandle_t xhandle_countdown_update = NULL;
 
 void CountdownUpdateTask(void *arg);
 
 Countdown::Countdown() :                \
+	isActivated(0),						\
     isWorking(0),                       \
     isOnMyPage(0),                      \
     set_min(COUNTDOWN_DEFAULT_MIN),     \
@@ -24,12 +25,36 @@ void Countdown::Init(System_TypeDef *SysAttr)
 
 void Countdown::Begin(uint8_t mins, uint8_t secs)
 {
-    this->isWorking = true;
+	this->isActivated = this->isWorking = true;
     this->set_min = this->cur_min = mins;
     this->set_sec = this->cur_sec = secs;
 
     xTaskCreate(CountdownUpdateTask, "CountdownUpdateTask", 1024*2, \
-        (void*)0, 6, &xhandle_countdown_update_task);
+        (void*)0, 6, &xhandle_countdown_update);
+}
+
+void Countdown::Pause()
+{
+	this->isWorking = false;
+	
+	if (xhandle_countdown_update != NULL) {
+		vTaskSuspend(xhandle_countdown_update);
+#ifdef DEBUG_MODE
+        Serial.println("Pause!");
+#endif
+	}
+	// Delay 1s for displaying the "Pause"
+}
+
+void Countdown::Resume()
+{
+	this->isWorking = true;
+	if (xhandle_countdown_update != NULL) {
+		vTaskResume(xhandle_countdown_update);
+#ifdef DEBUG_MODE
+        Serial.println("Resume!");
+#endif
+	}
 }
 
 /*
@@ -38,18 +63,20 @@ void Countdown::Begin(uint8_t mins, uint8_t secs)
 */
 void Countdown::StaticDisplay(uint8_t mins, uint8_t secs)
 {
-    String _time = "%02d:%02d";
-
-    Disbuff.fillRect(TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2,  \
-                        TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2,    \
-                        Disbuff.textWidth("99:99"), Disbuff.fontHeight(),   \
-                        TFT_BLACK);
+	Disbuff.setTextSize(4);
+	Disbuff.setTextColor(TFT_RED);
+    Disbuff.fillRect(
+		TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2,	\
+		TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2,    	\
+		Disbuff.textWidth("99:99"), Disbuff.fontHeight(),   	\
+		TFT_BLACK
+	);
     
-    Disbuff.setTextSize(4);
-    Disbuff.setCursor(TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2, \
-                        TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2);
-    Disbuff.setTextColor(TFT_RED);
-    Disbuff.printf(_time.c_str(), mins, secs);
+    Disbuff.setCursor(
+		TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2, 	\
+        TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2
+	);
+    Disbuff.printf("%02d:%02d", mins, secs);
     Disbuff.pushSprite(0, 0);
 }
 
@@ -64,8 +91,8 @@ void Countdown::StaticDisplay(uint8_t mins, uint8_t secs)
 void Countdown::UpdateDisplay()
 {
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-    if (this->isWorking) {
-		/* Working */
+    
+	if (this->isActivated) {
         this->StaticDisplay(this->cur_min, this->cur_sec);
     }
     else if (this->set_min != COUNTDOWN_DEFAULT_MIN or \
@@ -81,14 +108,10 @@ void Countdown::UpdateDisplay()
     xSemaphoreGive(lcd_draw_sem);
 }
 
-void Countdown::Update()
+void Countdown::CountdownUpdate()
 {
     this->cur_min = (this->cur_sec == 0) ? this->cur_min - 1 : this->cur_min;
     this->cur_sec = (this->cur_sec == 0) ? 59 : this->cur_sec - 1;
-
-#ifdef DEBUG_MODE
-    Serial.printf("%02d:%02d left\n", this->cur_min, this->cur_sec);
-#endif
 
     if (this->isOnMyPage) {
         xSemaphoreTake(lcd_draw_sem, 0);
@@ -101,16 +124,35 @@ void Countdown::Update()
     }
 }
 
+void Countdown::ButtonsUpdate()
+{
+	/* Buttons judgement in working */
+	if (this->isActivated) {
+		if (M5.BtnA.wasReleased()) {
+			if (this->isWorking) {
+				this->Pause();
+			}
+			else {
+				this->Resume();
+			}
+		}
+	}
+	/* Buttons judgement in idle */
+	else {
+		this->SetCoundown();
+	}
+}
+
 void Countdown::Stop(bool isShutdown)
 {
     /* Turn off the LED */
     digitalWrite(M5_LED, HIGH);
 
-    this->isWorking = false;
+	this->isActivated = this->isWorking = false;
     this->set_min = this->cur_min = COUNTDOWN_DEFAULT_MIN;
     this->set_sec = this->cur_sec = COUNTDOWN_DEFAULT_SEC;
 
-    /* Show "Time up" */
+    // TODO Show just 1s
     if (this->isOnMyPage) {
         xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
         Disbuff.setCursor(10, 10);
@@ -127,7 +169,11 @@ void Countdown::Stop(bool isShutdown)
 
         Disbuff.pushSprite(0, 0);
         xSemaphoreGive(lcd_draw_sem);
+		vTaskDelay(1000 / portTICK_RATE_MS);
     }
+
+	this->StaticDisplay(COUNTDOWN_DEFAULT_MIN, COUNTDOWN_DEFAULT_SEC);
+	vTaskDelete(xhandle_countdown_update);
 }
 
 void Countdown::OnMyPage()
@@ -215,17 +261,14 @@ void Countdown::SetMinuteUpdate()
 
 void CountdownUpdateTask(void *arg)
 {
-    TickType_t last_tick = xTaskGetTickCount();
+    // TickType_t last_tick = xTaskGetTickCount();
 
-    do {
-        xTaskDelayUntil(&last_tick, 1000 / portTICK_RATE_MS);
+    while(1) {
+        // xTaskDelayUntil(&last_tick, 1000 / portTICK_RATE_MS);
+		vTaskDelay(1000 / portTICK_RATE_MS);
         digitalWrite(M5_LED, 1 - digitalRead(M5_LED));
-        user_countdown.Update();
-
-		if (!user_countdown.IsWorking()) {
-			break;
-		}
-    } while (1);
+        User_Countdown.CountdownUpdate();
+    };
 }
 
-Countdown user_countdown;
+Countdown User_Countdown;

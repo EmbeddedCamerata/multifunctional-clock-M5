@@ -11,7 +11,7 @@ const char *PageStr[4] = {
 #endif
 
 extern System_TypeDef UserSystem;
-extern TaskHandle_t xhandle_clock_display_update;
+extern TaskHandle_t xhandle_clock_display;
 TFT_eSprite Disbuff = TFT_eSprite(&M5.Lcd);
 SemaphoreHandle_t lcd_draw_sem = NULL;
 
@@ -75,8 +75,8 @@ void SystemInit(System_TypeDef *SysAttr)
 	/*
 		Display the first data based on initial page
 	*/
-	user_NTPclock.Init(SysAttr);
-	user_countdown.Init(SysAttr);
+	User_NTPClock.Init(SysAttr);
+	User_Countdown.Init(SysAttr);
 }
 
 void PageUpdate(void *arg)
@@ -103,12 +103,12 @@ void PageChangRefresh(SysPage_e new_page)
 	switch (new_page) {
 		case PAGE_TEMPERATURE:
 			/* Leave */
-			user_countdown.Leave();
-			user_NTPclock.Leave();
+			User_Countdown.Leave();
+			User_NTPClock.Leave();
 
 			/* Suspend Clock display task */
-			if (xhandle_clock_display_update != NULL) {
-				vTaskSuspend(xhandle_clock_display_update);
+			if (xhandle_clock_display != NULL) {
+				vTaskSuspend(xhandle_clock_display);
 			}
 			
 			xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
@@ -126,23 +126,23 @@ void PageChangRefresh(SysPage_e new_page)
 
 		case PAGE_CLOCK:
 			/* Leave */
-			user_countdown.Leave();
+			User_Countdown.Leave();
 
-			user_NTPclock.OnMyPage();
+			User_NTPClock.OnMyPage();
 
-			if (xhandle_clock_display_update != NULL) {
-				vTaskResume(xhandle_clock_display_update);
+			if (xhandle_clock_display != NULL) {
+				vTaskResume(xhandle_clock_display);
 			}
 
 			break;
 		
 		case PAGE_SET_ALARM:
 			/* Leave */
-			user_countdown.Leave();
-			user_NTPclock.Leave();
+			User_Countdown.Leave();
+			User_NTPClock.Leave();
 			/* Suspend Clock display task */
-			if (xhandle_clock_display_update != NULL) {
-				vTaskSuspend(xhandle_clock_display_update);
+			if (xhandle_clock_display != NULL) {
+				vTaskSuspend(xhandle_clock_display);
 			}
 
 			M5.Lcd.setRotation(2);
@@ -158,17 +158,17 @@ void PageChangRefresh(SysPage_e new_page)
 		
 		case PAGE_COUNTDOWN:
 			/* Leave */
-			user_NTPclock.Leave();
+			User_NTPClock.Leave();
 			/*
 				Suspend tasks of other pages
 			*/
 			// 1. Clock display task
-			if (xhandle_clock_display_update != NULL) {
-				vTaskSuspend(xhandle_clock_display_update);
+			if (xhandle_clock_display != NULL) {
+				vTaskSuspend(xhandle_clock_display);
 			}
 
 			/* Tell user_coundown that it is on my page */
-			user_countdown.OnMyPage();
+			User_Countdown.OnMyPage();
 			break;
 		
 		default: break;
@@ -189,37 +189,22 @@ void ButtonsUpdate(void *arg)
 				break;
 
 			case PAGE_CLOCK:
-				if (M5.BtnA.wasReleased()) {
-				/* Short press of BtnA for update NTP time immediately */
-					user_NTPclock.UpdateNow();
-#ifdef DEBUG_MODE
-        			Serial.println("Button A released");
-#endif
-    			}
-				if (M5.BtnB.wasReleased()) {
-					PowerDisplay();
-				}
+				User_NTPClock.ButtonsUpdate();
+
 				break;
 			
 			case PAGE_SET_ALARM:
 				break;
 
 			case PAGE_COUNTDOWN:
-				/* Buttons judgement in working */
-				if (user_countdown.IsWorking()) {
-					// TODO
-				}
-				/* Buttons judgement in idle */
-				else {
-					user_countdown.SetCoundown();
-				}
+				User_Countdown.ButtonsUpdate();
 				
 				break;
 			
 			default: break;
 		}
 
-		vTaskDelay(50 / portTICK_RATE_MS);
+		vTaskDelay(100 / portTICK_RATE_MS);
     }
 }
 
