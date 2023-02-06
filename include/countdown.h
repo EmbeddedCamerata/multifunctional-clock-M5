@@ -18,7 +18,7 @@ public:
     void CountdownUpdate();
     void ButtonsUpdate();
     void SetCoundown();
-    void Stop(bool IsShutdown = false);
+    void Stop(bool isShutdown = false);
 
     void OnMyPage();
     void Leave();
@@ -32,6 +32,7 @@ public:
 private:
     void StaticDisplay(uint8_t mins, uint8_t secs);
     void UpdateDisplay();
+    void StatusPromptDisplay(const char* StrToShow);
 
     bool isActivated;   // Whether it starts counting down
     bool isWorking;     // Whether it is counting down

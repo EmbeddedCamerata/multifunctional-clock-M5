@@ -43,18 +43,22 @@ void Countdown::Pause()
         Serial.println("Pause!");
 #endif
 	}
-	// Delay 1s for displaying the "Pause"
+	
+	this->StatusPromptDisplay("Pause");
 }
 
 void Countdown::Resume()
 {
 	this->isWorking = true;
+	
 	if (xhandle_countdown_update != NULL) {
 		vTaskResume(xhandle_countdown_update);
 #ifdef DEBUG_MODE
         Serial.println("Resume!");
 #endif
 	}
+
+	this->StatusPromptDisplay("Resume");
 }
 
 /*
@@ -155,39 +159,61 @@ void Countdown::Stop(bool isShutdown)
     this->set_min = this->cur_min = COUNTDOWN_DEFAULT_MIN;
     this->set_sec = this->cur_sec = COUNTDOWN_DEFAULT_SEC;
 
-    if (this->isOnMyPage) {
-        xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-        
-        this->StaticDisplay(COUNTDOWN_DEFAULT_MIN, COUNTDOWN_DEFAULT_SEC);
-        
-        Disbuff.setCursor(10, 10);
-        Disbuff.setTextSize(2);
-        Disbuff.setTextColor(TFT_WHITE);
-        Disbuff.fillRect(10, 10, Disbuff.textWidth("Time up!"), Disbuff.fontHeight(), TFT_BLACK);
+	xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+	this->StaticDisplay(COUNTDOWN_DEFAULT_MIN, COUNTDOWN_DEFAULT_SEC);
+	xSemaphoreGive(lcd_draw_sem);
 
-        if (isShutdown) {
-            Disbuff.printf("Reset");
-        }
-        else {
-            Disbuff.printf("Time up!");
-        }
-        Disbuff.pushSprite(0, 0);
-        
-        xSemaphoreGive(lcd_draw_sem);
-        
-        vTaskDelay(1000 / portTICK_RATE_MS);
-        
-        xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-        
-        Disbuff.fillRect(10, 10, Disbuff.textWidth("Time up!"), Disbuff.fontHeight(), TFT_BLACK);
-        Disbuff.pushSprite(0, 0);
+	if (xhandle_countdown_update != xTaskGetCurrentTaskHandle()) {
+		/* Entering into Stop() from ButtonsUpdate */
+		if (xhandle_countdown_update != NULL) {
+			vTaskDelete(xhandle_countdown_update);
+		}
 
-        xSemaphoreGive(lcd_draw_sem);
-    }
+		if (isShutdown) {
+			this->StatusPromptDisplay("Reset");
+		}
+		else {
+			this->StatusPromptDisplay("Time up!");
+		}
+	}
+	else {
+		/* Entering into Stop() from CountdownUpdateTask */
+		if (this->isOnMyPage) {
+			if (isShutdown) {
+				this->StatusPromptDisplay("Reset");
+			}
+			else {
+				this->StatusPromptDisplay("Time up!");
+			}
+		}
 
-    if (xhandle_countdown_update != NULL) {
-        vTaskDelete(xhandle_countdown_update);
-    }
+		if (xhandle_countdown_update != NULL) {
+			vTaskDelete(xhandle_countdown_update);
+		}
+	}
+}
+
+void Countdown::StatusPromptDisplay(const char *StrToShow)
+{
+	xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+	
+	Disbuff.setCursor(10, 10);
+	Disbuff.setTextSize(2);
+	Disbuff.setTextColor(TFT_WHITE);
+	Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH/2, Disbuff.fontHeight(), TFT_BLACK);
+	Disbuff.print(StrToShow);
+	Disbuff.pushSprite(0, 0);
+	
+	xSemaphoreGive(lcd_draw_sem);
+	
+	vTaskDelay(800 / portTICK_RATE_MS);
+	
+	xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+	
+	Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH/2, Disbuff.fontHeight(), TFT_BLACK);
+	Disbuff.pushSprite(0, 0);
+
+	xSemaphoreGive(lcd_draw_sem);
 }
 
 void Countdown::OnMyPage()
