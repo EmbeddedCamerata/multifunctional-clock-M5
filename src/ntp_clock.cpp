@@ -2,7 +2,9 @@
 #include <WiFi.h>
 
 extern TFT_eSprite Disbuff;
+extern SemaphoreHandle_t wifi_connected_sem;
 extern SemaphoreHandle_t lcd_draw_sem;
+
 const char *ntpServer = "time1.aliyun.com";
 const long gmtOffset_sec = 8 * 3600;
 const int daylightOffset_sec = 3600;
@@ -26,6 +28,8 @@ NTPClock::NTPClock(bool DateOnStartup) :   \
 
 void NTPClock::Init(System_TypeDef *SysAttr)
 {
+    xSemaphoreTake(wifi_connected_sem, portMAX_DELAY);
+
     if (SysAttr->SysPage == PAGE_CLOCK) {
         Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
         this->OnMyPage();

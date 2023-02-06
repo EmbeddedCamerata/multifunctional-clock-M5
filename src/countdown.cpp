@@ -114,13 +114,13 @@ void Countdown::CountdownUpdate()
     this->cur_sec = (this->cur_sec == 0) ? 59 : this->cur_sec - 1;
 
     if (this->isOnMyPage) {
-        xSemaphoreTake(lcd_draw_sem, 0);
+        xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
         this->StaticDisplay(this->cur_min, this->cur_sec);
         xSemaphoreGive(lcd_draw_sem);
     }
 
     if (this->cur_min == 0 and this->cur_sec == 0) {
-        this->Stop(false);
+        this->Stop();
     }
 }
 
@@ -136,6 +136,9 @@ void Countdown::ButtonsUpdate()
 				this->Resume();
 			}
 		}
+        else if (M5.BtnA.wasReleasefor(500)) {
+            this->Stop(true);
+        }
 	}
 	/* Buttons judgement in idle */
 	else {
@@ -152,13 +155,15 @@ void Countdown::Stop(bool isShutdown)
     this->set_min = this->cur_min = COUNTDOWN_DEFAULT_MIN;
     this->set_sec = this->cur_sec = COUNTDOWN_DEFAULT_SEC;
 
-    // TODO Show just 1s
     if (this->isOnMyPage) {
-        xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
+        xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+        
+        this->StaticDisplay(COUNTDOWN_DEFAULT_MIN, COUNTDOWN_DEFAULT_SEC);
+        
         Disbuff.setCursor(10, 10);
         Disbuff.setTextSize(2);
-        Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH, Disbuff.fontHeight(), TFT_BLACK);
         Disbuff.setTextColor(TFT_WHITE);
+        Disbuff.fillRect(10, 10, Disbuff.textWidth("Time up!"), Disbuff.fontHeight(), TFT_BLACK);
 
         if (isShutdown) {
             Disbuff.printf("Reset");
@@ -166,14 +171,23 @@ void Countdown::Stop(bool isShutdown)
         else {
             Disbuff.printf("Time up!");
         }
-
         Disbuff.pushSprite(0, 0);
+        
         xSemaphoreGive(lcd_draw_sem);
-		vTaskDelay(1000 / portTICK_RATE_MS);
+        
+        vTaskDelay(1000 / portTICK_RATE_MS);
+        
+        xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+        
+        Disbuff.fillRect(10, 10, Disbuff.textWidth("Time up!"), Disbuff.fontHeight(), TFT_BLACK);
+        Disbuff.pushSprite(0, 0);
+
+        xSemaphoreGive(lcd_draw_sem);
     }
 
-	this->StaticDisplay(COUNTDOWN_DEFAULT_MIN, COUNTDOWN_DEFAULT_SEC);
-	vTaskDelete(xhandle_countdown_update);
+    if (xhandle_countdown_update != NULL) {
+        vTaskDelete(xhandle_countdown_update);
+    }
 }
 
 void Countdown::OnMyPage()
@@ -204,7 +218,6 @@ void Countdown::SetCoundown()
         /* Short press of BtnA for +1 second */
         if (this->set_sec == 59) {
             this->set_sec = 0;
-            this->SetMinuteUpdate();
         }
         else {
             this->set_sec++;
@@ -217,7 +230,6 @@ void Countdown::SetCoundown()
         /* Long press of BtnA for +10 seconds */
         if (this->set_sec >= 50) {
             this->set_sec = 0;
-            this->SetMinuteUpdate();
         }
         else {
             this->set_sec += 10;
@@ -246,16 +258,6 @@ void Countdown::SetCoundown()
     
     if (isChanged) {
         this->UpdateDisplay();
-    }
-}
-
-void Countdown::SetMinuteUpdate()
-{
-    if (this->set_min == 10) {
-        this->set_min = 0;
-    }
-    else {
-        this->set_min++;
     }
 }
 

@@ -30,7 +30,6 @@ public:
     uint8_t set_min, set_sec;
 
 private:
-    void SetMinuteUpdate();
     void StaticDisplay(uint8_t mins, uint8_t secs);
     void UpdateDisplay();
 

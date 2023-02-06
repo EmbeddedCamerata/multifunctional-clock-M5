@@ -13,10 +13,13 @@ const char *PageStr[4] = {
 extern System_TypeDef UserSystem;
 extern TaskHandle_t xhandle_clock_display;
 TFT_eSprite Disbuff = TFT_eSprite(&M5.Lcd);
+TaskHandle_t xhandle_wifi_connect = NULL;
+SemaphoreHandle_t wifi_connected_sem = NULL;
 SemaphoreHandle_t lcd_draw_sem = NULL;
 
 /* Functions statement */
 void PageChangRefresh(SysPage_e new_page);
+void WiFiConnectTask(void *arg);
 void PowerDisplay();
 
 void SystemInit(System_TypeDef *SysAttr)
@@ -27,18 +30,34 @@ void SystemInit(System_TypeDef *SysAttr)
 	// 1. M5
 	M5.begin();
 
-	// 2. LED
+	// 2. Create semaphores
+	lcd_draw_sem = xSemaphoreCreateMutex();
+	if (lcd_draw_sem == NULL) {
+		Serial.println("Semaphore lcd_draw_sem error!");
+		return;
+	}
+
+	wifi_connected_sem = xSemaphoreCreateBinary();
+	if (wifi_connected_sem == NULL) {
+		Serial.println("Semaphore wifi_connected_sem error!");
+		return;
+	}
+
+	// 3. WiFi
+	xTaskCreate(WiFiConnectTask, "WiFiConnectTask", 1024*2, (void*)0, 4, &xhandle_wifi_connect);
+
+	// 4. LED
 	pinMode(M5_LED, OUTPUT);
 	digitalWrite(M5_LED, HIGH);
 
-	// 3. IMU
+	// 5. IMU
     int rc = M5.IMU.Init(); /* return 0 is ok, return -1 is unknow */
 	if (rc < 0) {
 		Serial.printf("IMU init error: %d\n", rc);
 		return;
 	}
 
-	// 4. Sytem page. Self-adaption rotation based on IMU
+	// 6. Sytem page. Self-adaption rotation based on IMU
 #ifdef INITIAL_PAGE_SELF_ADAPTION
 	SysPage_e page;
 	float accX, accY, accZ;
@@ -52,22 +71,6 @@ void SystemInit(System_TypeDef *SysAttr)
 #else
 	SysAttr->SysPage = INITIAL_DEFAULT_PAGE;
 #endif
-
-	// 5. WiFi
-	Serial.printf("Connecting to %s", _SSID);
-	WiFi.begin(_SSID, _PASSWORD);
-	while (WiFi.status() != WL_CONNECTED) {  // If the wifi connection fails.  若wifi未连接成功
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nConnected!");
-
-	// 6. Create semaphores
-	lcd_draw_sem = xSemaphoreCreateMutex();
-	if (lcd_draw_sem == NULL) {
-		Serial.println("Semaphore lcd_draw_sem error!");
-		return;
-	}
 
 	Serial.println("System init OK");
 	delay(500);
@@ -206,6 +209,21 @@ void ButtonsUpdate(void *arg)
 
 		vTaskDelay(100 / portTICK_RATE_MS);
     }
+}
+
+void WiFiConnectTask(void *arg)
+{
+	Serial.printf("Connecting to %s", _SSID);
+	WiFi.begin(_SSID, _PASSWORD);
+	while (WiFi.status() != WL_CONNECTED) {  // If the wifi connection fails.  若wifi未连接成功
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\nConnected!");
+
+	xSemaphoreGive(wifi_connected_sem);
+
+	vTaskDelete(NULL);
 }
 
 void PowerDisplay()
