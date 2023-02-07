@@ -3,7 +3,7 @@
 
 #ifdef DEBUG_MODE
 const char *PageStr[4] = {
-    "PAGE_TEMPERATURE",
+    "PAGE_WEATHER",
 	"PAGE_CLOCK",
 	"PAGE_SET_ALARM",
     "PAGE_COUNTDOWN",
@@ -12,53 +12,32 @@ const char *PageStr[4] = {
 
 extern System_TypeDef UserSystem;
 extern TaskHandle_t xhandle_clock_display;
+
 TFT_eSprite Disbuff = TFT_eSprite(&M5.Lcd);
-TaskHandle_t xhandle_wifi_connect = NULL;
-SemaphoreHandle_t wifi_connected_sem = NULL;
-SemaphoreHandle_t lcd_draw_sem = NULL;
+TaskHandle_t xhandle_user_ntp_init = NULL;
+TaskHandle_t xhandle_user_qweather_init = NULL;
+TaskHandle_t xhandle_user_countdown_init = NULL;
 
 /* Functions statement */
-void PageChangRefresh(SysPage_e new_page);
-void WiFiConnectTask(void *arg);
+static void PageChangRefresh(SysPage_e NewPage);
 void PowerDisplay();
+SysPage_e IMUJudge(float accX, float accY, float accZ);
 
 void SystemInit(System_TypeDef *SysAttr)
 {
-	/*
-		Initialization
-	*/
-	// 1. M5
-	M5.begin();
-
-	// 2. Create semaphores
-	lcd_draw_sem = xSemaphoreCreateMutex();
-	if (lcd_draw_sem == NULL) {
-		Serial.println("Semaphore lcd_draw_sem error!");
-		return;
-	}
-
-	wifi_connected_sem = xSemaphoreCreateBinary();
-	if (wifi_connected_sem == NULL) {
-		Serial.println("Semaphore wifi_connected_sem error!");
-		return;
-	}
-
-	// 3. WiFi
-	xTaskCreate(WiFiConnectTask, "WiFiConnectTask", 1024*2, (void*)0, 4, &xhandle_wifi_connect);
-
-	// 4. LED
+	// 2. LED
 	pinMode(M5_LED, OUTPUT);
 	digitalWrite(M5_LED, HIGH);
 
-	// 5. IMU
+	// 3. IMU
     int rc = M5.IMU.Init(); /* return 0 is ok, return -1 is unknow */
 	if (rc < 0) {
 		Serial.printf("IMU init error: %d\n", rc);
 		return;
 	}
 
-	// 6. Sytem page. Self-adaption rotation based on IMU
-#ifdef INITIAL_PAGE_SELF_ADAPTION
+	// 4. Sytem page. Self-adaption rotation based on IMU
+#ifdef SYSTEM_PAGE_SELF_ADAPTION
 	SysPage_e page;
 	float accX, accY, accZ;
 
@@ -66,20 +45,19 @@ void SystemInit(System_TypeDef *SysAttr)
 		SysAttr->SysPage = page;
 	}
 	else {
-		SysAttr->SysPage = INITIAL_DEFAULT_PAGE;
+		SysAttr->SysPage = SYSTEM_DEFAULT_PAGE;
 	}
 #else
-	SysAttr->SysPage = INITIAL_DEFAULT_PAGE;
+	SysAttr->SysPage = SYSTEM_DEFAULT_PAGE;
 #endif
 
 	Serial.println("System init OK");
 	delay(500);
 
-	/*
-		Display the first data based on initial page
-	*/
-	User_NTPClock.Init(SysAttr);
-	User_Countdown.Init(SysAttr);
+	/* Initialize 4 modules */
+	xTaskCreate(NTPClockInitTask, "NTPClockInitTask", 1024*2, (void*)0, 4, &xhandle_user_ntp_init);
+	xTaskCreate(QWeatherInitTask, "QWeatherInitTask", 1024*4, (void*)0, 4, &xhandle_user_qweather_init);
+	xTaskCreate(CountdownInitTask, "CountdownInitTask", 1024, (void*)0, 4, &xhandle_user_countdown_init);
 }
 
 void PageUpdate(void *arg)
@@ -101,10 +79,10 @@ void PageUpdate(void *arg)
 	}
 }
 
-void PageChangRefresh(SysPage_e new_page)
+static void PageChangRefresh(SysPage_e NewPage)
 {
-	switch (new_page) {
-		case PAGE_TEMPERATURE:
+	switch (NewPage) {
+		case PAGE_WEATHER:
 			/* Leave */
 			User_Countdown.Leave();
 			User_NTPClock.Leave();
@@ -113,23 +91,15 @@ void PageChangRefresh(SysPage_e new_page)
 			if (xhandle_clock_display != NULL) {
 				vTaskSuspend(xhandle_clock_display);
 			}
-			
-			xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-			M5.Lcd.setRotation(0);
-			Disbuff.fillRect(0, 0, TFT_WIDTH, TFT_HEIGHT, TFT_BLACK);
 
-#ifdef DEBUG_MODE
-			Disbuff.setCursor(Disbuff.height()-10, 10);
-			Disbuff.print(PageStr[new_page]);
-#endif
-			Disbuff.pushSprite(0, 0);
-			xSemaphoreGive(lcd_draw_sem);
+			User_QWeather.OnMyPage();
 
 			break;
 
 		case PAGE_CLOCK:
 			/* Leave */
 			User_Countdown.Leave();
+			User_QWeather.Leave();
 
 			User_NTPClock.OnMyPage();
 
@@ -143,25 +113,19 @@ void PageChangRefresh(SysPage_e new_page)
 			/* Leave */
 			User_Countdown.Leave();
 			User_NTPClock.Leave();
+			User_QWeather.Leave();
+			
 			/* Suspend Clock display task */
 			if (xhandle_clock_display != NULL) {
 				vTaskSuspend(xhandle_clock_display);
 			}
-
-			M5.Lcd.setRotation(2);
-			Disbuff.fillRect(0, 0, TFT_WIDTH, TFT_HEIGHT, TFT_BLACK);
-#ifdef DEBUG_MODE
-			Disbuff.setCursor(120, 0);
-			Disbuff.print(PageStr[new_page]);
-#endif
-			Disbuff.pushSprite(0, 0);
-			xSemaphoreGive(lcd_draw_sem);
 
 			break;
 		
 		case PAGE_COUNTDOWN:
 			/* Leave */
 			User_NTPClock.Leave();
+			User_QWeather.Leave();
 			/*
 				Suspend tasks of other pages
 			*/
@@ -178,7 +142,7 @@ void PageChangRefresh(SysPage_e new_page)
 	}
 	
 #ifdef DEBUG_MODE
-	Serial.println(PageStr[new_page]);
+	Serial.println(PageStr[NewPage]);
 #endif
 }
 
@@ -188,7 +152,7 @@ void ButtonsUpdate(void *arg)
         M5.update();
 
         switch (UserSystem.SysPage) {
-			case PAGE_TEMPERATURE:
+			case PAGE_WEATHER:
 				break;
 
 			case PAGE_CLOCK:
@@ -213,15 +177,26 @@ void ButtonsUpdate(void *arg)
 
 void WiFiConnectTask(void *arg)
 {
-	Serial.printf("Connecting to %s", _SSID);
-	WiFi.begin(_SSID, _PASSWORD);
-	while (WiFi.status() != WL_CONNECTED) {  // If the wifi connection fails.  若wifi未连接成功
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nConnected!");
+	unsigned long dt;
 
-	xSemaphoreGive(wifi_connected_sem);
+	Serial.printf("Connecting to %s\n", _SSID);
+	
+	WiFi.begin(_SSID, _PASSWORD);
+	
+	dt = millis();
+	while (WiFi.status() != WL_CONNECTED) {
+        vTaskDelay(500);
+        Serial.print(".");
+
+		if (millis() - dt > WIFI_CONNECTION_TIMEOUT * 1000UL) {
+			Serial.println("\nWiFi connected failed! Please check ssid and password!");
+			vTaskDelete(NULL);
+		}
+    }
+    
+	Serial.println("\nConnected!");
+
+	xEventGroupSetBits(UserSystem.SysEvents, EVENT_WIFI_CONNECTED_FLAG);
 
 	vTaskDelete(NULL);
 }
@@ -247,14 +222,36 @@ void PowerDisplay()
 	Serial.printf("Temp: %.2f\n", temp);
 #endif
 
-	xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
-	Disbuff.setTextSize(1);
-	Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH, Disbuff.fontHeight(), TFT_BLACK);
-	Disbuff.setCursor(10, 10);
-	Disbuff.setTextColor(TFT_RED);
+	// xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
+	// Disbuff.setTextSize(1);
+	// Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH, Disbuff.fontHeight(), TFT_BLACK);
+	// Disbuff.setCursor(10, 10);
+	// Disbuff.setTextColor(TFT_RED);
 
-	Disbuff.printf("V/I/B: %.2f/%.2f/%.2f\n", vbat, ibat, bat);
+	// Disbuff.printf("V/I/B: %.2f/%.2f/%.2f\n", vbat, ibat, bat);
 
-	Disbuff.pushSprite(0, 0);
-	xSemaphoreGive(lcd_draw_sem);
+	// Disbuff.pushSprite(0, 0);
+	// xSemaphoreGive(lcd_draw_sem);
+}
+
+SysPage_e IMUJudge(float accX, float accY, float accZ)
+{
+    if (1 - accX < 0.1) {
+        /* accX approx 1 */
+        return PAGE_CLOCK;
+    }
+    else if (1 + accX < 0.1) {
+        /* accX approx -1 */
+        return PAGE_COUNTDOWN;
+    }
+    else if (1 - accY < 0.1) {
+        /* accY approx 1 */
+        return PAGE_WEATHER;
+    }
+    else if (1 + accY < 0.1) {
+        /* accY approx -1 */
+        return PAGE_SET_ALARM;
+    }
+
+    return PAGE_UNKNOWN;
 }

@@ -1,10 +1,12 @@
 #include "../include/utils.h"
 
+extern System_TypeDef UserSystem;
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t lcd_draw_sem;
+
 TaskHandle_t xhandle_countdown_update = NULL;
 
-void CountdownUpdateTask(void *arg);
+static void CountdownUpdateTask(void *arg);
 
 Countdown::Countdown() :                \
 	isActivated(0),						\
@@ -15,11 +17,11 @@ Countdown::Countdown() :                \
     cur_min(COUNTDOWN_DEFAULT_MIN),     \
     cur_sec(COUNTDOWN_DEFAULT_SEC) {}
 
-void Countdown::Init(System_TypeDef *SysAttr)
+void Countdown::Init(SysPage_e Page)
 {
-    if (SysAttr->SysPage == PAGE_COUNTDOWN) {
-        Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
-        this->OnMyPage();
+    if (Page == PAGE_COUNTDOWN) {
+        this->isOnMyPage = true;
+        this->TFTRecreate();
     }
 }
 
@@ -59,6 +61,121 @@ void Countdown::Resume()
 	}
 
 	this->StatusPromptDisplay("Resume");
+}
+
+void Countdown::Stop(bool isReset)
+{
+    /* Turn off the LED */
+    digitalWrite(M5_LED, HIGH);
+
+	this->isActivated = this->isWorking = false;
+
+#ifdef RESET_TO_THE_BEGINNING
+    this->cur_min = this->set_min;
+    this->cur_sec = this->set_sec;
+#else
+    this->set_min = this->cur_min = COUNTDOWN_DEFAULT_MIN;
+    this->set_sec = this->cur_sec = COUNTDOWN_DEFAULT_SEC;
+#endif
+
+	xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+	this->StaticDisplay(this->set_min, this->set_sec);
+	xSemaphoreGive(lcd_draw_sem);
+
+	if (xhandle_countdown_update != xTaskGetCurrentTaskHandle()) {
+		/* Entering into Stop() from ButtonsUpdate */
+		if (xhandle_countdown_update != NULL) {
+			vTaskDelete(xhandle_countdown_update);
+		}
+
+		if (isReset) {
+			this->StatusPromptDisplay("Reset");
+		}
+		else {
+			this->StatusPromptDisplay("Time up!");
+		}
+	}
+	else {
+		/* Entering into Stop() from CountdownUpdateTask */
+		if (this->isOnMyPage) {
+			if (isReset) {
+				this->StatusPromptDisplay("Reset");
+			}
+			else {
+				this->StatusPromptDisplay("Time up!");
+			}
+		}
+
+		if (xhandle_countdown_update != NULL) {
+			vTaskDelete(xhandle_countdown_update);
+		}
+	}
+}
+
+void Countdown::OnMyPage()
+{
+    this->isOnMyPage = true;
+    this->TFTRecreate();
+	this->UpdateDisplay();
+}
+
+void Countdown::Leave()
+{
+    this->isOnMyPage = false;
+}
+
+void Countdown::CountdownUpdate()
+{
+    this->cur_min = (this->cur_sec == 0) ? this->cur_min - 1 : this->cur_min;
+    this->cur_sec = (this->cur_sec == 0) ? 59 : this->cur_sec - 1;
+
+    if (this->isOnMyPage) {
+        xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
+        this->StaticDisplay(this->cur_min, this->cur_sec);
+        xSemaphoreGive(lcd_draw_sem);
+    }
+
+    if (this->cur_min == 0 and this->cur_sec == 0) {
+        this->Stop();
+    }
+}
+
+void Countdown::ButtonsUpdate()
+{
+	/* Buttons judgement in working */
+	if (this->isActivated) {
+		if (M5.BtnA.wasReleased()) {
+			if (this->isWorking) {
+				this->Pause();
+			}
+			else {
+				this->Resume();
+			}
+		}
+        else if (M5.BtnA.wasReleasefor(500)) {
+            /* Reset */
+            this->Stop(true);
+        }
+	}
+	/* Buttons judgement in idle */
+	else {
+		this->SetCoundown();
+	}
+}
+
+void Countdown::TFTRecreate()
+{
+    M5.Lcd.setRotation(PAGE_COUNTDOWN);
+
+    xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+    if (Disbuff.width() != TFT_LANDSCAPE_WIDTH) {
+        Disbuff.deleteSprite();
+		Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
+    }
+
+    Disbuff.fillRect(0, 0, TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT, TFT_BLACK);
+    Disbuff.pushSprite(0, 0);
+    xSemaphoreGive(lcd_draw_sem);
 }
 
 /*
@@ -112,87 +229,6 @@ void Countdown::UpdateDisplay()
     xSemaphoreGive(lcd_draw_sem);
 }
 
-void Countdown::CountdownUpdate()
-{
-    this->cur_min = (this->cur_sec == 0) ? this->cur_min - 1 : this->cur_min;
-    this->cur_sec = (this->cur_sec == 0) ? 59 : this->cur_sec - 1;
-
-    if (this->isOnMyPage) {
-        xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
-        this->StaticDisplay(this->cur_min, this->cur_sec);
-        xSemaphoreGive(lcd_draw_sem);
-    }
-
-    if (this->cur_min == 0 and this->cur_sec == 0) {
-        this->Stop();
-    }
-}
-
-void Countdown::ButtonsUpdate()
-{
-	/* Buttons judgement in working */
-	if (this->isActivated) {
-		if (M5.BtnA.wasReleased()) {
-			if (this->isWorking) {
-				this->Pause();
-			}
-			else {
-				this->Resume();
-			}
-		}
-        else if (M5.BtnA.wasReleasefor(500)) {
-            this->Stop(true);
-        }
-	}
-	/* Buttons judgement in idle */
-	else {
-		this->SetCoundown();
-	}
-}
-
-void Countdown::Stop(bool isShutdown)
-{
-    /* Turn off the LED */
-    digitalWrite(M5_LED, HIGH);
-
-	this->isActivated = this->isWorking = false;
-    this->set_min = this->cur_min = COUNTDOWN_DEFAULT_MIN;
-    this->set_sec = this->cur_sec = COUNTDOWN_DEFAULT_SEC;
-
-	xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-	this->StaticDisplay(COUNTDOWN_DEFAULT_MIN, COUNTDOWN_DEFAULT_SEC);
-	xSemaphoreGive(lcd_draw_sem);
-
-	if (xhandle_countdown_update != xTaskGetCurrentTaskHandle()) {
-		/* Entering into Stop() from ButtonsUpdate */
-		if (xhandle_countdown_update != NULL) {
-			vTaskDelete(xhandle_countdown_update);
-		}
-
-		if (isShutdown) {
-			this->StatusPromptDisplay("Reset");
-		}
-		else {
-			this->StatusPromptDisplay("Time up!");
-		}
-	}
-	else {
-		/* Entering into Stop() from CountdownUpdateTask */
-		if (this->isOnMyPage) {
-			if (isShutdown) {
-				this->StatusPromptDisplay("Reset");
-			}
-			else {
-				this->StatusPromptDisplay("Time up!");
-			}
-		}
-
-		if (xhandle_countdown_update != NULL) {
-			vTaskDelete(xhandle_countdown_update);
-		}
-	}
-}
-
 void Countdown::StatusPromptDisplay(const char *StrToShow)
 {
 	xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
@@ -214,26 +250,6 @@ void Countdown::StatusPromptDisplay(const char *StrToShow)
 	Disbuff.pushSprite(0, 0);
 
 	xSemaphoreGive(lcd_draw_sem);
-}
-
-void Countdown::OnMyPage()
-{
-    this->isOnMyPage = true;
-    M5.Lcd.setRotation(PAGE_COUNTDOWN);
-
-    if (TFT_LANDSCAPE_WIDTH != TFT_LANDSCAPE_WIDTH) {
-        Disbuff.deleteSprite();
-		Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
-    }
-
-    Disbuff.fillRect(0, 0, TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT, TFT_BLACK);
-
-	this->UpdateDisplay();
-}
-
-void Countdown::Leave()
-{
-    this->isOnMyPage = false;
 }
 
 void Countdown::SetCoundown()
@@ -287,7 +303,13 @@ void Countdown::SetCoundown()
     }
 }
 
-void CountdownUpdateTask(void *arg)
+void CountdownInitTask(void *arg)
+{
+    User_Countdown.Init(UserSystem.SysPage);
+    vTaskDelete(NULL);
+}
+
+static void CountdownUpdateTask(void *arg)
 {
     // TickType_t last_tick = xTaskGetTickCount();
 

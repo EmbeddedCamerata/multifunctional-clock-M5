@@ -4,9 +4,11 @@
 #include <M5StickCPlus.h>
 #include "countdown.h"
 #include "hw_timer.h"
+#include "m5_qweather.h"
 #include "ntp_clock.h"
 #include "user_system.h"
 
+/* Definitions of debug mode */
 #define DEBUG_MODE
 #ifdef DEBUG_MODE
 #define POWER_DISPLAY
@@ -14,44 +16,34 @@
 
 #define RETRY_TIMES (3)
 #ifdef RETRY_TIMES
-#define NTP_UPDATE_RETRY_TIMES RETRY_TIMES
+#define NTP_UPDATE_RETRY_TIMES  RETRY_TIMES
+#define QWEATHER_RETRY_TIMES    RETRY_TIMES
 #else
-#define NTP_UPDATE_RETRY_TIMES (3)
+#define NTP_UPDATE_RETRY_TIMES  (3)
+#define QWEATHER_RETRY_TIMES    (3)
 #endif
 
-#define INITIAL_PAGE_SELF_ADAPTION
-#define INITIAL_DEFAULT_PAGE PAGE_CLOCK
+#define WIFI_CONNECTION_TIMEOUT	(10)	/* Unit: second */
 
-#define TFT_LANDSCAPE_WIDTH TFT_HEIGHT
-#define TFT_LANDSCAPE_HEIGHT TFT_WIDTH
-#define TFT_VERTICAL_WIDTH TFT_WIDTH
-#define TFT_VERTICAL_HEIGHT TFT_HEIGHT
+/* Definitions of system */
+#define SYSTEM_PAGE_SELF_ADAPTION
+#define SYSTEM_DEFAULT_PAGE     PAGE_WEATHER
 
-#define NTPCLOCK_REGULAR_SYNC
+#define TFT_LANDSCAPE_WIDTH     TFT_HEIGHT
+#define TFT_LANDSCAPE_HEIGHT    TFT_WIDTH
+#define TFT_VERTICAL_WIDTH      TFT_WIDTH
+#define TFT_VERTICAL_HEIGHT     TFT_HEIGHT
+
+/* Definitions of NTP clock */
+//#define NTP_REGULAR_SYNC                /* NTP clock synchronization regularly */
+#ifdef NTP_REGULAR_SYNC
+#define NTP_CALIBRATION_INTERVAL (60)   /* Unit: minute */
+#endif
+
+/* Difinitions of countdown */
+#define RESET_TO_THE_BEGINNING          /* When countdown completed, reset the countdown to the last time */
 
 #define _SSID "cfpzr"
 #define _PASSWORD "20000804"
-
-inline SysPage_e IMUJudge(float accX, float accY, float accZ)
-{
-    if (1 - accX < 0.1) {
-        /* accX approx 1 */
-        return PAGE_CLOCK;
-    }
-    else if (1 + accX < 0.1) {
-        /* accX approx -1 */
-        return PAGE_COUNTDOWN;
-    }
-    else if (1 - accY < 0.1) {
-        /* accY approx 1 */
-        return PAGE_TEMPERATURE;
-    }
-    else if (1 + accY < 0.1) {
-        /* accY approx -1 */
-        return PAGE_SET_ALARM;
-    }
-
-    return PAGE_UNKNOWN;
-}
 
 #endif /* __UTILS_H__ */

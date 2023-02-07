@@ -3,10 +3,13 @@
 
 #include <time.h>
 
+#define EVENT_WIFI_CONNECTED_FLAG   BIT0
+#define EVENT_NTP_INITIAL_OK        BIT1
+
 typedef enum SysPage
 {
     /* Top, Rotation(0) */
-    PAGE_TEMPERATURE,
+    PAGE_WEATHER,
     /* Left landscape, Rotation(1) */
     PAGE_CLOCK, // Using RTC and WIFI
     /* Top reversed, Rotation(2) */
@@ -22,10 +25,13 @@ typedef struct System_Attr
     SysPage_e SysPage;
     /* To check the update interval */
     struct tm LastNTPTime;
+
+    EventGroupHandle_t SysEvents;
 } System_TypeDef;
 
 void SystemInit(System_TypeDef *SysAttr);
 void PageUpdate(void *arg);
 void ButtonsUpdate(void *arg);
+void WiFiConnectTask(void *arg);
 
 #endif /* __USER_SYSTEM_H__ */

@@ -1,40 +1,57 @@
 #include "../include/utils.h"
 #include <WiFi.h>
 
+extern System_TypeDef UserSystem;
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t wifi_connected_sem;
 extern SemaphoreHandle_t lcd_draw_sem;
 
-const char *ntpServer = "time1.aliyun.com";
-const long gmtOffset_sec = 8 * 3600;
-const int daylightOffset_sec = 3600;
-const char *Weekdays[7] = {
-    "Sun", "Mon", "Tues", "Wed", "Thu", "Wed", "Sat"
-};
-const char *Months[12] = {
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-};
-
 TaskHandle_t xhandle_clock_display = NULL;
 
 void ClockDisplayTask(void *arg);
-void ClockRegularUpdateTask(void *arg);
 
 NTPClock::NTPClock(bool DateOnStartup) :   \
     isInited(0),                           \
     isOnMyPage(0),                         \
     isDisplayingDate(DateOnStartup) {}
 
-void NTPClock::Init(System_TypeDef *SysAttr)
+void NTPClock::Init(SysPage_e Page)
 {
-    xSemaphoreTake(wifi_connected_sem, portMAX_DELAY);
+    int _try_time = 0;
+    struct tm timeinfo;
 
-    if (SysAttr->SysPage == PAGE_CLOCK) {
-        Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
-        this->OnMyPage();
+    if (this->isInited) {
+        return;
     }
 
+    configTime(this->gmtOffset_sec, this->daylightOffset_sec, this->ntpServer);
+        
+    if (!this->SyncLocalTime(&timeinfo)) {
+        do {
+            _try_time++;
+#ifdef DEBUG_MODE
+            Serial.printf("Retries: %d/%d\n", _try_time, NTP_UPDATE_RETRY_TIMES);
+#endif
+            if (_try_time == NTP_UPDATE_RETRY_TIMES) {
+                // TODO Error handle here
+                return;
+            }
+        } while (!this->SyncLocalTime(&timeinfo));
+    }
+
+    WiFi.setSleep(true);
+    // WiFi.disconnect(true);
+    // WiFi.mode(WIFI_OFF);
+
+    xTaskCreate(ClockDisplayTask, "ClockDisplayTask", \
+        1024*2, (void*)0, 6, &xhandle_clock_display);
+
+    if (Page == PAGE_CLOCK) {
+        this->isOnMyPage = true;
+        this->TFTRecreate();
+        this->DisplayFromNTP(&timeinfo);
+    }
+    
     this->isInited = true;
 }
 
@@ -64,47 +81,9 @@ void NTPClock::ButtonsUpdate()
 
 void NTPClock::OnMyPage()
 {
-    int _try_time = 0;
-    struct tm timeinfo;
-
     this->isOnMyPage = true;
-    M5.Lcd.setRotation(PAGE_CLOCK);
-
-    if (Disbuff.width() != TFT_LANDSCAPE_WIDTH) {
-        Disbuff.deleteSprite();
-		Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
-    }
-
-    Disbuff.fillRect(0, 0, TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT, TFT_BLACK);
-
-    if (!this->isInited) {
-        configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);  // init and get the time.
-        
-        if (!this->SyncLocalTime(&timeinfo)) {
-            do {
-                _try_time++;
-#ifdef DEBUG_MODE
-                Serial.printf("Retries: %d/%d\n", _try_time, NTP_UPDATE_RETRY_TIMES);
-#endif
-				if (_try_time == NTP_UPDATE_RETRY_TIMES) {
-					// TODO Error handle here
-					return;
-				}
-            } while (!this->SyncLocalTime(&timeinfo));
-        }
-
-        WiFi.setSleep(true);
-        // WiFi.disconnect(true);
-        // WiFi.mode(WIFI_OFF);
-
-        xTaskCreate(ClockDisplayTask, "ClockDisplayTask", \
-            1024*2, (void*)0, 6, &xhandle_clock_display);
-
-        this->DisplayFromNTP(&timeinfo);
-    }
-    else {
-        this->DisplayFromRTC(false, (TickType_t)10);
-    }
+    this->TFTRecreate();
+    this->DisplayFromRTC(false, (TickType_t)10);
 }
 
 void NTPClock::Leave()
@@ -114,7 +93,7 @@ void NTPClock::Leave()
 
 /*
     @brief
-        Get NTP time and update LastNTPTime
+        Get NTP time and update LastSyncTime
 */
 bool NTPClock::SyncLocalTime(struct tm *TimeInfo)
 {
@@ -131,6 +110,21 @@ bool NTPClock::SyncLocalTime(struct tm *TimeInfo)
 #endif
 
     return true;
+}
+
+void NTPClock::TFTRecreate()
+{
+    M5.Lcd.setRotation(PAGE_CLOCK);
+
+    xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+    if (Disbuff.width() != TFT_LANDSCAPE_WIDTH) {
+        Disbuff.deleteSprite();
+		Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
+    }
+
+    Disbuff.fillRect(0, 0, TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT, TFT_BLACK);
+    Disbuff.pushSprite(0, 0);
+    xSemaphoreGive(lcd_draw_sem);
 }
 
 void NTPClock::DisplayFromNTP(struct tm *TimeInfo, TickType_t Tick)
@@ -204,7 +198,7 @@ void NTPClock::DateDisplay(uint8_t Month, uint8_t Weekday, uint8_t Date)
     );
     Disbuff.setCursor(10, 10);
     Disbuff.setTextColor(TFT_WHITE);
-    Disbuff.printf("%s. %d / %s", Months[Month], Date, Weekdays[Weekday]);
+    Disbuff.printf("%s. %d / %s", this->Months[Month], Date, this->Weekdays[Weekday]);
     Disbuff.pushSprite(0, 0);
 }
 
@@ -230,17 +224,30 @@ void ClockDisplayTask(void *arg)
 
     while (1) {
         vTaskDelay(1000 / portTICK_RATE_MS);
-        _interval++;
 
+#ifdef NTP_REGULAR_SYNC
+        _interval++;
         if (_interval == 60 * NTP_CALIBRATION_INTERVAL) {
             _interval = 0;
             User_NTPClock.LocalTimeUpdate();
         }
+#endif
         
         if (User_NTPClock.IsOnMyPage()) {
             User_NTPClock.DisplayFromRTC(true, portMAX_DELAY);
         }
     }
+}
+
+void NTPClockInitTask(void *arg)
+{
+    xEventGroupWaitBits(UserSystem.SysEvents, EVENT_WIFI_CONNECTED_FLAG, pdFALSE, pdTRUE, portMAX_DELAY);
+
+    User_NTPClock.Init(UserSystem.SysPage);
+
+    xEventGroupSetBits(UserSystem.SysEvents, EVENT_NTP_INITIAL_OK);
+
+    vTaskDelete(NULL);
 }
 
 NTPClock User_NTPClock(true);

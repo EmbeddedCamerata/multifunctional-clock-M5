@@ -11,17 +11,17 @@ class Countdown
 public:
     Countdown();
 
-    void Init(System_TypeDef *SysAttr);
+    void Init(SysPage_e Page);
     void Begin(uint8_t mins, uint8_t secs);
     void Pause();
     void Resume();
-    void CountdownUpdate();
-    void ButtonsUpdate();
-    void SetCoundown();
-    void Stop(bool isShutdown = false);
+    void Stop(bool isReset = false);
 
     void OnMyPage();
     void Leave();
+
+    void CountdownUpdate();
+    void ButtonsUpdate();
 
     inline bool IsOnMyPage() { return this->isOnMyPage; };
     inline bool IsStopped() { return (not this->isWorking) and (not this->isActivated); };
@@ -30,6 +30,9 @@ public:
     uint8_t set_min, set_sec;
 
 private:
+    void SetCoundown();
+
+    void TFTRecreate();
     void StaticDisplay(uint8_t mins, uint8_t secs);
     void UpdateDisplay();
     void StatusPromptDisplay(const char* StrToShow);
@@ -39,6 +42,8 @@ private:
     bool isOnMyPage;
     uint8_t cur_min, cur_sec;
 };
+
+void CountdownInitTask(void *arg);
 
 extern Countdown User_Countdown;
 
