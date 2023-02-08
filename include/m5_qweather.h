@@ -2,23 +2,30 @@
 #define __M5_QWEATHER_H__
 
 #include "user_system.h"
-#include <Arduino.h>
 
 typedef enum QWeatherUrl
 {
 	URL_CURRENT_WEATHER,
-	URL_CURRENT_POLLUTION
+	URL_CURRENT_AIR_POLLUTION
 } QWeatherUrlType;
 
 typedef struct QCurWeather_Attr
 {
-	String wea_updateTime;
-	String temp;
-	String icon;
+	String updateTime;
+	int temp;
+	int icon;
 	String text;
-	String windscale;
-	String humidity;
+	int humidity;
 } QCurWeather_TypeDef, *QCurWeather_Ptr;
+
+typedef struct QCurAirPollution_Attr
+{
+	String pol_updateTime;
+	String level;
+	String category;
+	String pm10;
+	String pm2p5;
+} QCurAirPollution_TypeDef, *QCurAirPollution_Ptr;
 
 class QWeather
 {
@@ -26,10 +33,12 @@ public:
 	QWeather();
 
 	void Init(SysPage_e Page);
+	void ButtonsUpdate();
 	void OnMyPage();
     void Leave();
 
-	void GetCurrent(String LocationID, String Language);
+	void GetCurWeather();
+	void GetCurAirPollution();
 	void DisplayCurWeather();
 
 	inline void Inited() { this->isInited = true; };
@@ -38,7 +47,8 @@ public:
 private:
 	bool isInited;
     bool isOnMyPage;
-	QCurWeather_TypeDef current;
+	QCurWeather_TypeDef CurWeatherData;
+	QCurAirPollution_TypeDef CurAirPollutionData;
 
 	String ApiKey = "dca23824f42248bb9e01ff278b463e40";
 	String LocationID = "101010100";	// Beijing
@@ -46,8 +56,10 @@ private:
 
 private:
 	void TFTRecreate();
+	bool CurWeatherUpdate();
 	bool ParseRequest(String Url, QWeatherUrlType UrlType);
 	bool ParseCurWeather(String Payload);
+	bool ParseCurAirPollution(String Payload);
 };
 
 void QWeatherInitTask(void *arg);

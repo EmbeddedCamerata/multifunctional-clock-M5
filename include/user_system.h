@@ -11,7 +11,7 @@ typedef enum SysPage
     /* Top, Rotation(0) */
     PAGE_WEATHER,
     /* Left landscape, Rotation(1) */
-    PAGE_CLOCK, // Using RTC and WIFI
+    PAGE_NTPCLOCK, // Using RTC and WIFI
     /* Top reversed, Rotation(2) */
     PAGE_SET_ALARM,
     /* Right landscape, Rotation(3) */

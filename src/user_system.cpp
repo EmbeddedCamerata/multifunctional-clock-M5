@@ -4,7 +4,7 @@
 #ifdef DEBUG_MODE
 const char *PageStr[4] = {
     "PAGE_WEATHER",
-	"PAGE_CLOCK",
+	"PAGE_NTPCLOCK",
 	"PAGE_SET_ALARM",
     "PAGE_COUNTDOWN",
 };
@@ -96,7 +96,7 @@ static void PageChangRefresh(SysPage_e NewPage)
 
 			break;
 
-		case PAGE_CLOCK:
+		case PAGE_NTPCLOCK:
 			/* Leave */
 			User_Countdown.Leave();
 			User_QWeather.Leave();
@@ -153,9 +153,10 @@ void ButtonsUpdate(void *arg)
 
         switch (UserSystem.SysPage) {
 			case PAGE_WEATHER:
+				User_QWeather.ButtonsUpdate();
 				break;
 
-			case PAGE_CLOCK:
+			case PAGE_NTPCLOCK:
 				User_NTPClock.ButtonsUpdate();
 
 				break;
@@ -238,7 +239,7 @@ SysPage_e IMUJudge(float accX, float accY, float accZ)
 {
     if (1 - accX < 0.1) {
         /* accX approx 1 */
-        return PAGE_CLOCK;
+        return PAGE_NTPCLOCK;
     }
     else if (1 + accX < 0.1) {
         /* accX approx -1 */

@@ -17,14 +17,26 @@ void QWeather::Init(SysPage_e Page)
         return;
     }
 
-    this->GetCurrent(this->LocationID, this->Language);
+    this->GetCurWeather();
 
     if (Page == PAGE_WEATHER) {
         this->isOnMyPage = true;
         this->TFTRecreate();
+        this->DisplayCurWeather();
     }
 
     this->isInited = true;
+}
+
+void QWeather::ButtonsUpdate()
+{
+    if (M5.BtnA.wasReleased()) {
+        /* Short press of BtnA for updating current weather immediately */
+        this->CurWeatherUpdate();
+    }
+    if (M5.BtnB.wasReleased()) {
+        
+    }
 }
 
 void QWeather::OnMyPage()
@@ -39,19 +51,93 @@ void QWeather::Leave()
     this->isOnMyPage = false;
 }
 
-void QWeather::GetCurrent(String LocationID, String Language)
+void QWeather::GetCurWeather()
 {
     bool ret;
-    String url = "https://devapi.qweather.com/v7/weather/now?location=" + LocationID + \
-        "&lang=" + Language + "&key=" + this->ApiKey + "&gzip=n";
+    String url = "https://devapi.qweather.com/v7/weather/now?location=" + this->LocationID + \
+        "&lang=" + this->Language + "&key=" + this->ApiKey + "&gzip=n";
 
     ret = this->ParseRequest(url, URL_CURRENT_WEATHER);
+}
 
+void QWeather::GetCurAirPollution()
+{
+    bool ret;
+    String url = "https://api.qweather.com/v7/air/now?location=" + this->LocationID + \
+        "&lang=" + this->Language + "&key=" + this->ApiKey + "&gzip=n";
+
+    ret = this->ParseRequest(url, URL_CURRENT_AIR_POLLUTION);
 }
 
 void QWeather::DisplayCurWeather()
 {
+    xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+    //Disbuff.setTextDatum(ML_DATUM);
+    Disbuff.setTextSize(4);
+    Disbuff.setTextColor(TFT_RED);
 
+    /* Draw the temperature */
+    if (this->CurWeatherData.temp >= 10) {
+        Disbuff.fillRect(
+            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,   \
+            40 - Disbuff.fontHeight()/2,                        \
+            Disbuff.textWidth("99"), Disbuff.fontHeight(),      \
+            TFT_BLACK
+        );
+        Disbuff.setCursor(
+            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2, \
+            40 - Disbuff.fontHeight()/2
+        );
+        Disbuff.printf("%02d", this->CurWeatherData.temp);
+    }
+    else if (0 < this->CurWeatherData.temp < 10) {
+        Disbuff.fillRect(
+            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("9")/2,    \
+            40 - Disbuff.fontHeight()/2,                        \
+            Disbuff.textWidth("9"), Disbuff.fontHeight(),       \
+            TFT_BLACK
+        );
+        Disbuff.setCursor(
+            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("9")/2,    \
+            40 - Disbuff.fontHeight()/2
+        );
+        Disbuff.printf("%d", this->CurWeatherData.temp);
+
+        /* Draw the "oc" text besides the number */
+        //Disbuff.setTextDatum(TL_DATUM);
+        Disbuff.fillRect(
+            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2,    \
+            80 - Disbuff.fontHeight(4),                         \
+            Disbuff.textWidth("o"), Disbuff.fontHeight(2),      \
+            TFT_BLACK
+        );
+        Disbuff.setCursor(
+            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2,    \
+            80 - Disbuff.fontHeight(4)
+        );
+        Disbuff.setTextColor(TFT_WHITE);
+        Disbuff.setTextSize(2);
+        Disbuff.print("o");
+    }
+    else {
+        // TODO -9/-10
+        Disbuff.fillRect(
+            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("-9")/2, 40,    \
+            Disbuff.textWidth("-9"), Disbuff.fontHeight(),           \
+            TFT_BLACK
+        );
+        Disbuff.setCursor(TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("-9")/2, 40);
+        Disbuff.printf("-%d", this->CurWeatherData.temp);
+    }
+
+    Disbuff.setTextSize(4);
+    Disbuff.setTextColor(TFT_RED);
+	Disbuff.fillRect(TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2, 120, Disbuff.textWidth("99%"), Disbuff.fontHeight(), TFT_BLACK);
+    Disbuff.setCursor(TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2, 120);
+    Disbuff.printf("%d%%", this->CurWeatherData.humidity);
+    Disbuff.pushSprite(0, 0);
+
+    xSemaphoreGive(lcd_draw_sem);
 }
 
 void QWeather::TFTRecreate()
@@ -59,14 +145,25 @@ void QWeather::TFTRecreate()
     M5.Lcd.setRotation(PAGE_WEATHER);
 
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-    if (Disbuff.width() != TFT_LANDSCAPE_HEIGHT) {
+    if (Disbuff.width() != TFT_VERTICAL_WIDTH) {
         Disbuff.deleteSprite();
-		Disbuff.createSprite(TFT_LANDSCAPE_HEIGHT, TFT_LANDSCAPE_WIDTH);
+		Disbuff.createSprite(TFT_VERTICAL_WIDTH, TFT_VERTICAL_HEIGHT);
     }
 
-    Disbuff.fillRect(0, 0, TFT_LANDSCAPE_HEIGHT, TFT_LANDSCAPE_WIDTH, TFT_BLACK);
+    Disbuff.fillRect(0, 0, TFT_VERTICAL_WIDTH, TFT_VERTICAL_HEIGHT, TFT_BLACK);
     Disbuff.pushSprite(0, 0);
     xSemaphoreGive(lcd_draw_sem);
+}
+
+bool QWeather::CurWeatherUpdate()
+{
+    bool ret;
+    
+    this->GetCurWeather();
+    
+    if (this->isOnMyPage) {
+        this->DisplayCurWeather();
+    }
 }
 
 bool QWeather::ParseRequest(String Url, QWeatherUrlType UrlType)
@@ -83,8 +180,7 @@ bool QWeather::ParseRequest(String Url, QWeatherUrlType UrlType)
     }
 
     dt = millis();
-    
-    httpCode = http.GET();
+    httpCode = http.sendRequest("GET");
 
     while (http.connected()) {
         if (httpCode > 0) {
@@ -110,6 +206,9 @@ bool QWeather::ParseRequest(String Url, QWeatherUrlType UrlType)
     if (UrlType == URL_CURRENT_WEATHER) {
         ret = this->ParseCurWeather(payload);
     }
+    else if (UrlType == URL_CURRENT_AIR_POLLUTION) {
+        ret = this->ParseCurAirPollution(payload);
+    }
 
     http.end();
     
@@ -120,50 +219,44 @@ bool QWeather::ParseCurWeather(String Payload)
 {
 	// String input;
 	StaticJsonDocument<128> filter;
-	// filter["code"] = true;
-	// filter["updateTime"] = true;
+	filter["code"] = true;
+	filter["updateTime"] = true;
 
-	// JsonObject filter_now = filter.createNestedObject("now");
-	// filter_now["temp"] = true;
-	// filter_now["icon"] = true;
-	// filter_now["text"] = true;
-	// filter_now["windScale"] = true;
-	// filter_now["humidity"] = true;
+	JsonObject filter_now = filter.createNestedObject("now");
+	filter_now["temp"] = true;
+	filter_now["icon"] = true;
+	filter_now["text"] = true;
+	filter_now["humidity"] = true;
 
-	// StaticJsonDocument<256> doc;
+	StaticJsonDocument<256> doc;
 
-	// DeserializationError error = deserializeJson(doc, Payload, DeserializationOption::Filter(filter));
+	DeserializationError error = deserializeJson(doc, Payload, DeserializationOption::Filter(filter));
 
-	// if (error) 
-	// {
-	// 	Serial.print("deserializeJson() failed: ");
-	// 	Serial.println(error.c_str());
-	// 	return false;
-	// }
+	if (error) {
+		Serial.print("deserializeJson() failed: ");
+		Serial.println(error.c_str());
+		return false;
+	}
 
-	// const char* code = doc["code"]; // "200"
-	// const char* updateTime = doc["updateTime"]; // "2021-12-16T11:57+08:00"
+	if (doc["code"].as<int>() != 200) {
+		Serial.println("Current weather request failed!");
+		return false;
+	}
 
-	// if (strcmp(code, "200") != 0)
-	// {
-	// 	Serial.println("Current weather request failed!");
-	// 	return false;
-	// }
+	JsonObject now = doc["now"];
 
-	// JsonObject now = doc["now"];
-	// const char* now_temp = now["temp"]; // "3"
-	// const char* now_icon = now["icon"]; // "100"
-	// const char* now_text = now["text"]; // "Sunny"
-	// const char* now_windScale = now["windScale"]; // "5"
-	// const char* now_humidity = now["humidity"]; // "20"
+	this->CurWeatherData.updateTime = doc["updateTime"].as<String>();
+	this->CurWeatherData.temp = now["temp"].as<int>();
+	this->CurWeatherData.icon = now["icon"].as<int>();
+	this->CurWeatherData.text = now["text"].as<String>();
+	this->CurWeatherData.humidity = now["humidity"].as<int>();
 
-	// current -> wea_updateTime = updateTime;
-	// current -> temp = now_temp;
-	// current -> icon = now_icon;
-	// current -> text = now_text;
-	// current -> windscale = now_windScale;
-	// current -> humidity = now_humidity;
 	return true;
+}
+
+bool QWeather::ParseCurAirPollution(String Payload)
+{
+    return true;
 }
 
 void QWeatherInitTask(void *arg)

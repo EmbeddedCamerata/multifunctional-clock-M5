@@ -42,6 +42,8 @@
 
 /* Difinitions of countdown */
 #define RESET_TO_THE_BEGINNING          /* When countdown completed, reset the countdown to the last time */
+#define COUNTDOWN_DEFAULT_MIN	(0)
+#define COUNTDOWN_DEFAULT_SEC	(0)
 
 #define _SSID "cfpzr"
 #define _PASSWORD "20000804"

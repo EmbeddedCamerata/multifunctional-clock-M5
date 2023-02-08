@@ -46,7 +46,7 @@ void NTPClock::Init(SysPage_e Page)
     xTaskCreate(ClockDisplayTask, "ClockDisplayTask", \
         1024*2, (void*)0, 6, &xhandle_clock_display);
 
-    if (Page == PAGE_CLOCK) {
+    if (Page == PAGE_NTPCLOCK) {
         this->isOnMyPage = true;
         this->TFTRecreate();
         this->DisplayFromNTP(&timeinfo);
@@ -71,7 +71,7 @@ void NTPClock::LocalTimeUpdate()
 void NTPClock::ButtonsUpdate()
 {
     if (M5.BtnA.wasReleased()) {
-        /* Short press of BtnA for update NTP time immediately */
+        /* Short press of BtnA for updating NTP time immediately */
         this->LocalTimeUpdate();
     }
     if (M5.BtnB.wasReleased()) {
@@ -114,7 +114,7 @@ bool NTPClock::SyncLocalTime(struct tm *TimeInfo)
 
 void NTPClock::TFTRecreate()
 {
-    M5.Lcd.setRotation(PAGE_CLOCK);
+    M5.Lcd.setRotation(PAGE_NTPCLOCK);
 
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
     if (Disbuff.width() != TFT_LANDSCAPE_WIDTH) {

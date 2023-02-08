@@ -3,9 +3,6 @@
 
 #include "user_system.h"
 
-#define COUNTDOWN_DEFAULT_MIN (0)
-#define COUNTDOWN_DEFAULT_SEC (5)
-
 class Countdown
 {
 public:
