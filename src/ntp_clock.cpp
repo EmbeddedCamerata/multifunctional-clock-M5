@@ -30,9 +30,9 @@ void NTPClock::Init(SysPage_e Page)
         do {
             _try_time++;
 #ifdef DEBUG_MODE
-            Serial.printf("Retries: %d/%d\n", _try_time, NTP_UPDATE_RETRY_TIMES);
+            Serial.printf("Retries: %d/%d\n", _try_time, NTP_UPDATE_MAX_RETRY);
 #endif
-            if (_try_time == NTP_UPDATE_RETRY_TIMES) {
+            if (_try_time == NTP_UPDATE_MAX_RETRY) {
                 // TODO Error handle here
                 return;
             }
@@ -74,7 +74,7 @@ void NTPClock::ButtonsUpdate()
         /* Short press of BtnA for updating NTP time immediately */
         this->LocalTimeUpdate();
     }
-    if (M5.BtnB.wasReleased()) {
+    else if (M5.BtnB.wasReleased()) {
         
     }
 }
@@ -241,11 +241,14 @@ void ClockDisplayTask(void *arg)
 
 void NTPClockInitTask(void *arg)
 {
-    xEventGroupWaitBits(UserSystem.SysEvents, EVENT_WIFI_CONNECTED_FLAG, pdFALSE, pdTRUE, portMAX_DELAY);
+    xEventGroupWaitBits(
+        UserSystem.SysEvents, EVENT_WIFI_CONNECTED_FLAG, \
+        pdFALSE, pdTRUE, portMAX_DELAY
+    );
 
     User_NTPClock.Init(UserSystem.SysPage);
 
-    xEventGroupSetBits(UserSystem.SysEvents, EVENT_NTP_INITIAL_OK);
+    xEventGroupSetBits(UserSystem.SysEvents, EVENT_NTP_INITIAL_OK_FLAG);
 
     vTaskDelete(NULL);
 }

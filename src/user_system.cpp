@@ -6,7 +6,7 @@ const char *PageStr[4] = {
     "PAGE_WEATHER",
 	"PAGE_NTPCLOCK",
 	"PAGE_SET_ALARM",
-    "PAGE_COUNTDOWN",
+    "PAGE_TIMER",
 };
 #endif
 
@@ -37,7 +37,7 @@ void SystemInit(System_TypeDef *SysAttr)
 	}
 
 	// 4. Sytem page. Self-adaption rotation based on IMU
-#ifdef SYSTEM_PAGE_SELF_ADAPTION
+#ifdef SYSTEM_INITIAL_PAGE_SELF_ADAPTION
 	SysPage_e page;
 	float accX, accY, accZ;
 
@@ -55,9 +55,15 @@ void SystemInit(System_TypeDef *SysAttr)
 	delay(500);
 
 	/* Initialize 4 modules */
-	xTaskCreate(NTPClockInitTask, "NTPClockInitTask", 1024*2, (void*)0, 4, &xhandle_user_ntp_init);
-	xTaskCreate(QWeatherInitTask, "QWeatherInitTask", 1024*4, (void*)0, 4, &xhandle_user_qweather_init);
-	xTaskCreate(CountdownInitTask, "CountdownInitTask", 1024, (void*)0, 4, &xhandle_user_countdown_init);
+	xTaskCreate(NTPClockInitTask, "NTPClockInitTask", 1024*2, \
+		(void*)0, 4, &xhandle_user_ntp_init
+	);
+	xTaskCreate(QWeatherInitTask, "QWeatherInitTask", 1024*4, \
+		(void*)0, 4, &xhandle_user_qweather_init
+	);
+	xTaskCreate(CountdownTimerInitTask, "CountdownTimerInitTask", \
+		1024, (void*)0, 4, &xhandle_user_countdown_init
+	);
 }
 
 void PageUpdate(void *arg)
@@ -84,7 +90,7 @@ static void PageChangRefresh(SysPage_e NewPage)
 	switch (NewPage) {
 		case PAGE_WEATHER:
 			/* Leave */
-			User_Countdown.Leave();
+			User_CountdownTimer.Leave();
 			User_NTPClock.Leave();
 
 			/* Suspend Clock display task */
@@ -98,7 +104,7 @@ static void PageChangRefresh(SysPage_e NewPage)
 
 		case PAGE_NTPCLOCK:
 			/* Leave */
-			User_Countdown.Leave();
+			User_CountdownTimer.Leave();
 			User_QWeather.Leave();
 
 			User_NTPClock.OnMyPage();
@@ -111,7 +117,7 @@ static void PageChangRefresh(SysPage_e NewPage)
 		
 		case PAGE_SET_ALARM:
 			/* Leave */
-			User_Countdown.Leave();
+			User_CountdownTimer.Leave();
 			User_NTPClock.Leave();
 			User_QWeather.Leave();
 			
@@ -122,7 +128,7 @@ static void PageChangRefresh(SysPage_e NewPage)
 
 			break;
 		
-		case PAGE_COUNTDOWN:
+		case PAGE_TIMER:
 			/* Leave */
 			User_NTPClock.Leave();
 			User_QWeather.Leave();
@@ -135,7 +141,7 @@ static void PageChangRefresh(SysPage_e NewPage)
 			}
 
 			/* Tell user_coundown that it is on my page */
-			User_Countdown.OnMyPage();
+			User_CountdownTimer.OnMyPage();
 			break;
 		
 		default: break;
@@ -164,8 +170,8 @@ void ButtonsUpdate(void *arg)
 			case PAGE_SET_ALARM:
 				break;
 
-			case PAGE_COUNTDOWN:
-				User_Countdown.ButtonsUpdate();
+			case PAGE_TIMER:
+				User_CountdownTimer.ButtonsUpdate();
 				
 				break;
 			
@@ -243,7 +249,7 @@ SysPage_e IMUJudge(float accX, float accY, float accZ)
     }
     else if (1 + accX < 0.1) {
         /* accX approx -1 */
-        return PAGE_COUNTDOWN;
+        return PAGE_TIMER;
     }
     else if (1 - accY < 0.1) {
         /* accY approx 1 */

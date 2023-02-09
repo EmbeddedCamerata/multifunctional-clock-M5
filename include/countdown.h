@@ -3,10 +3,10 @@
 
 #include "user_system.h"
 
-class Countdown
+class CountdownTimer
 {
 public:
-    Countdown();
+    CountdownTimer();
 
     void Init(SysPage_e Page);
     void Begin(uint8_t mins, uint8_t secs);
@@ -17,7 +17,7 @@ public:
     void OnMyPage();
     void Leave();
 
-    void CountdownUpdate();
+    void TimerUpdate();
     void ButtonsUpdate();
 
     inline bool IsOnMyPage() { return this->isOnMyPage; };
@@ -40,8 +40,8 @@ private:
     uint8_t cur_min, cur_sec;
 };
 
-void CountdownInitTask(void *arg);
+void CountdownTimerInitTask(void *arg);
 
-extern Countdown User_Countdown;
+extern CountdownTimer User_CountdownTimer;
 
 #endif /* __COUNTDOWN_H__ */

@@ -6,7 +6,7 @@
 typedef enum QWeatherUrl
 {
 	URL_CURRENT_WEATHER,
-	URL_CURRENT_AIR_POLLUTION
+	URL_CURRENT_AIR_QUALITY
 } QWeatherUrlType;
 
 typedef struct QCurWeather_Attr
@@ -18,14 +18,16 @@ typedef struct QCurWeather_Attr
 	int humidity;
 } QCurWeather_TypeDef, *QCurWeather_Ptr;
 
-typedef struct QCurAirPollution_Attr
+typedef struct QCurAirQuality_Attr
 {
-	String pol_updateTime;
-	String level;
+	String updateTime;
+	int aqi;
+	int level;
 	String category;
-	String pm10;
-	String pm2p5;
-} QCurAirPollution_TypeDef, *QCurAirPollution_Ptr;
+	String primary;
+	int pm10;
+	int pm2p5;
+} QCurAirQuality_TypeDef, *QCurAirQuality_Ptr;
 
 class QWeather
 {
@@ -37,9 +39,11 @@ public:
 	void OnMyPage();
     void Leave();
 
-	void GetCurWeather();
-	void GetCurAirPollution();
-	void DisplayCurWeather();
+	bool GetCurWeather();
+	bool GetCurAirQuality();
+
+	void CurWeatherUpdate();
+	void CurAirQualityUpdate();
 
 	inline void Inited() { this->isInited = true; };
 	inline bool IsOnMyPage() { return this->isOnMyPage; };
@@ -47,19 +51,22 @@ public:
 private:
 	bool isInited;
     bool isOnMyPage;
+	WeatherSubPage_e SubPage;
 	QCurWeather_TypeDef CurWeatherData;
-	QCurAirPollution_TypeDef CurAirPollutionData;
+	QCurAirQuality_TypeDef CurAirQualityData;
 
-	String ApiKey = "dca23824f42248bb9e01ff278b463e40";
-	String LocationID = "101010100";	// Beijing
-	String Language = "en";	// zh
+	String ApiKey = "dca23824f42248bb9e01ff278b463e40";	/* Dev API Key */
+	String LocationID = "101010100";					/* Beijing */
+	String Language = "en";								/* Or zh */
 
 private:
 	void TFTRecreate();
-	bool CurWeatherUpdate();
+	void DisplayCurWeather();
+	void DisplayCurAirQuality();
+
 	bool ParseRequest(String Url, QWeatherUrlType UrlType);
 	bool ParseCurWeather(String Payload);
-	bool ParseCurAirPollution(String Payload);
+	bool ParseCurAirQuality(String Payload);
 };
 
 void QWeatherInitTask(void *arg);
