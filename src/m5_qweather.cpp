@@ -3,7 +3,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-extern System_TypeDef UserSystem;
+extern SysTypeDef UserSystem;
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t lcd_draw_sem;
 
@@ -18,18 +18,19 @@ QWeather::QWeather() :                  \
     isInited(0),                        \
     isOnMyPage(0) {};
 
-void QWeather::Init(SysPage_e Page)
+void QWeather::Init(SysPageType Page)
 {
     if (this->isInited) {
         return;
     }
 
     this->GetCurWeather();
+    this->GetCurAirQuality();
 
     if (Page == PAGE_WEATHER) {
         this->isOnMyPage = true;
         this->TFTRecreate();
-        this->DisplayCurWeather();
+        this->DisplaySubPage();
     }
 
     this->isInited = true;
@@ -39,7 +40,11 @@ void QWeather::ButtonsUpdate()
 {
     if (M5.BtnA.wasReleased()) {
         /* Short press of BtnA for switching the sub page */
-        this->SubPage = (WeatherSubPage_e)(1 - (int)this->SubPage);
+        this->SubPage = (WeatherSubPageType)(1 - (int)this->SubPage);
+#ifdef DEBUG_MODE
+        Serial.printf("Sub page: %d\n", (int)this->SubPage);
+#endif
+        this->DisplaySubPage();
     }
     else if (M5.BtnA.wasReleasefor(500)) {
         /* Long press of BtnA for updating current weather & air quality immediately */
@@ -57,6 +62,7 @@ void QWeather::ButtonsUpdate()
 void QWeather::OnMyPage()
 {
     this->isOnMyPage = true;
+    this->SubPage = SUB_PAGE_CURRENT_WEATHER;
     this->TFTRecreate();
     this->DisplayCurWeather();
 }
@@ -114,10 +120,36 @@ bool QWeather::GetCurAirQuality()
     return true;
 }
 
+void QWeather::DisplaySubPage()
+{
+    if (this->SubPage == SUB_PAGE_CURRENT_WEATHER) {
+        this->DisplayCurWeather();
+    }
+    else if (this->SubPage == SUB_PAGE_CURRENT_AIR_QUALITY) {
+        this->DisplayCurAirQuality();
+    }
+}
+
 void QWeather::DisplayCurWeather()
 {
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-    //Disbuff.setTextDatum(ML_DATUM);
+    Disbuff.fillRect(0, 0, TFT_VERTICAL_WIDTH, TFT_VERTICAL_HEIGHT, TFT_BLACK);
+
+    Disbuff.setTextSize(2);
+    Disbuff.setTextColor(TFT_WHITE);
+    Disbuff.fillRect(
+        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("Temp")/2,   \
+        10 - Disbuff.fontHeight()/2,                        \
+        Disbuff.textWidth("Temp"), Disbuff.fontHeight(),      \
+        TFT_BLACK
+    );
+    Disbuff.setCursor(
+        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("Temp")/2,   \
+        10 - Disbuff.fontHeight()/2
+    );
+    Disbuff.print("Temp");
+
+    //Disbuff.setTextDatum(TL_DATUM);
     Disbuff.setTextSize(4);
     Disbuff.setTextColor(TFT_RED);
 
@@ -125,44 +157,54 @@ void QWeather::DisplayCurWeather()
     if (this->CurWeatherData.temp >= 10) {
         Disbuff.fillRect(
             TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,   \
-            40 - Disbuff.fontHeight()/2,                        \
+            50 - Disbuff.fontHeight()/2,                        \
             Disbuff.textWidth("99"), Disbuff.fontHeight(),      \
             TFT_BLACK
         );
         Disbuff.setCursor(
             TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2, \
-            40 - Disbuff.fontHeight()/2
+            50 - Disbuff.fontHeight()/2
         );
         Disbuff.printf("%02d", this->CurWeatherData.temp);
     }
     else if (0 < this->CurWeatherData.temp < 10) {
         Disbuff.fillRect(
             TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("9")/2,    \
-            40 - Disbuff.fontHeight()/2,                        \
+            50 - Disbuff.fontHeight()/2,                        \
             Disbuff.textWidth("9"), Disbuff.fontHeight(),       \
             TFT_BLACK
         );
         Disbuff.setCursor(
             TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("9")/2,    \
-            40 - Disbuff.fontHeight()/2
+            50 - Disbuff.fontHeight()/2
         );
         Disbuff.printf("%d", this->CurWeatherData.temp);
 
         /* Draw the "oc" text besides the number */
-        //Disbuff.setTextDatum(TL_DATUM);
         Disbuff.fillRect(
             TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2,    \
-            80 - Disbuff.fontHeight(4),                         \
-            Disbuff.textWidth("o"), Disbuff.fontHeight(2),      \
+            50 - Disbuff.fontHeight()/2,                        \
+            Disbuff.textWidth("o", 2), Disbuff.fontHeight(2),       \
             TFT_BLACK
         );
         Disbuff.setCursor(
             TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2,    \
-            80 - Disbuff.fontHeight(4)
+            50 - Disbuff.fontHeight()/2
         );
-        Disbuff.setTextColor(TFT_WHITE);
         Disbuff.setTextSize(2);
         Disbuff.print("o");
+
+        Disbuff.fillRect(
+            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2 + Disbuff.textWidth("o", 2),    \
+            50,                        \
+            Disbuff.textWidth("C", 2), Disbuff.fontHeight(2),       \
+            TFT_BLACK
+        );
+        Disbuff.setCursor(
+            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2 + Disbuff.textWidth("o", 2),    \
+            50
+        );
+        Disbuff.print("C");
     }
     else {
         // TODO -9/-10
@@ -180,14 +222,18 @@ void QWeather::DisplayCurWeather()
 	Disbuff.fillRect(TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2, 120, Disbuff.textWidth("99%"), Disbuff.fontHeight(), TFT_BLACK);
     Disbuff.setCursor(TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2, 120);
     Disbuff.printf("%d%%", this->CurWeatherData.humidity);
+    
     Disbuff.pushSprite(0, 0);
-
     xSemaphoreGive(lcd_draw_sem);
 }
 
 void QWeather::DisplayCurAirQuality()
 {
-    
+    xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+    Disbuff.fillRect(0, 0, TFT_VERTICAL_WIDTH, TFT_VERTICAL_HEIGHT, TFT_BLACK);
+
+    Disbuff.pushSprite(0, 0);
+    xSemaphoreGive(lcd_draw_sem);
 }
 
 void QWeather::TFTRecreate()

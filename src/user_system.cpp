@@ -10,7 +10,7 @@ const char *PageStr[4] = {
 };
 #endif
 
-extern System_TypeDef UserSystem;
+extern SysTypeDef UserSystem;
 extern TaskHandle_t xhandle_clock_display;
 
 TFT_eSprite Disbuff = TFT_eSprite(&M5.Lcd);
@@ -19,11 +19,11 @@ TaskHandle_t xhandle_user_qweather_init = NULL;
 TaskHandle_t xhandle_user_countdown_init = NULL;
 
 /* Functions statement */
-static void PageChangRefresh(SysPage_e NewPage);
+static void PageChangRefresh(SysPageType NewPage);
 void PowerDisplay();
-SysPage_e IMUJudge(float accX, float accY, float accZ);
+SysPageType IMUJudge(float accX, float accY, float accZ);
 
-void SystemInit(System_TypeDef *SysAttr)
+void SystemInit(SysTypeDef *SysAttr)
 {
 	// 2. LED
 	pinMode(M5_LED, OUTPUT);
@@ -38,7 +38,7 @@ void SystemInit(System_TypeDef *SysAttr)
 
 	// 4. Sytem page. Self-adaption rotation based on IMU
 #ifdef SYSTEM_INITIAL_PAGE_SELF_ADAPTION
-	SysPage_e page;
+	SysPageType page;
 	float accX, accY, accZ;
 
 	if ((page = IMUJudge(accX, accY, accZ)) != PAGE_UNKNOWN) {
@@ -68,7 +68,7 @@ void SystemInit(System_TypeDef *SysAttr)
 
 void PageUpdate(void *arg)
 {
-	SysPage_e new_page;
+	SysPageType new_page;
 	float accX, accY, accZ;
 	
 	while(1) {
@@ -85,7 +85,7 @@ void PageUpdate(void *arg)
 	}
 }
 
-static void PageChangRefresh(SysPage_e NewPage)
+static void PageChangRefresh(SysPageType NewPage)
 {
 	switch (NewPage) {
 		case PAGE_WEATHER:
@@ -241,7 +241,7 @@ void PowerDisplay()
 	// xSemaphoreGive(lcd_draw_sem);
 }
 
-SysPage_e IMUJudge(float accX, float accY, float accZ)
+SysPageType IMUJudge(float accX, float accY, float accZ)
 {
     if (1 - accX < 0.1) {
         /* accX approx 1 */

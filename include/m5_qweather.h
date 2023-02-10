@@ -3,9 +3,21 @@
 
 #include "user_system.h"
 
+typedef enum PageChanged
+{
+    MAIN_PAGE_CHANGED = 0U,
+    SUB_PAGE_CHANGED
+} PageChangedType;
+
+typedef enum WeatherSubPage
+{
+    SUB_PAGE_CURRENT_WEATHER = 0U,
+    SUB_PAGE_CURRENT_AIR_QUALITY
+} WeatherSubPageType;
+
 typedef enum QWeatherUrl
 {
-	URL_CURRENT_WEATHER,
+	URL_CURRENT_WEATHER = 0U,
 	URL_CURRENT_AIR_QUALITY
 } QWeatherUrlType;
 
@@ -34,7 +46,7 @@ class QWeather
 public:
 	QWeather();
 
-	void Init(SysPage_e Page);
+	void Init(SysPageType Page);
 	void ButtonsUpdate();
 	void OnMyPage();
     void Leave();
@@ -51,7 +63,7 @@ public:
 private:
 	bool isInited;
     bool isOnMyPage;
-	WeatherSubPage_e SubPage;
+	WeatherSubPageType SubPage;
 	QCurWeather_TypeDef CurWeatherData;
 	QCurAirQuality_TypeDef CurAirQualityData;
 
@@ -61,6 +73,7 @@ private:
 
 private:
 	void TFTRecreate();
+	void DisplaySubPage();
 	void DisplayCurWeather();
 	void DisplayCurAirQuality();
 

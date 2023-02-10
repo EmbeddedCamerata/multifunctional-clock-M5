@@ -9,7 +9,7 @@ class NTPClock
 public:
     NTPClock(bool DateOnStartup = false);
 
-    void Init(SysPage_e Page);
+    void Init(SysPageType Page);
 
     void LocalTimeUpdate();
     void ButtonsUpdate();

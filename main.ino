@@ -1,6 +1,6 @@
 #include "include/utils.h"
 
-System_TypeDef UserSystem = {
+SysTypeDef UserSystem = {
 	.SysPage = PAGE_UNKNOWN,
 	.SysEvents = NULL
 };
@@ -33,7 +33,7 @@ void setup()
 	SystemInit(&UserSystem);
 
 	xTaskCreate(PageUpdate, "PageUpdate", 1024*2, (void*)0, 4, &xhandle_page_update);
-	xTaskCreate(ButtonsUpdate, "ButtonsUpdate", 1024, (void*)0, 5, &xhandle_buttons_update);
+	xTaskCreate(ButtonsUpdate, "ButtonsUpdate", 1024*2, (void*)0, 5, &xhandle_buttons_update);
 }
 
 void loop()

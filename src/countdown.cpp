@@ -1,6 +1,6 @@
 #include "../include/utils.h"
 
-extern System_TypeDef UserSystem;
+extern SysTypeDef UserSystem;
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t lcd_draw_sem;
 
@@ -17,7 +17,7 @@ CountdownTimer::CountdownTimer() :          \
     cur_min(COUNTDOWN_TIMER_DEFAULT_MIN),   \
     cur_sec(COUNTDOWN_TIMER_DEFAULT_SEC) {}
 
-void CountdownTimer::Init(SysPage_e Page)
+void CountdownTimer::Init(SysPageType Page)
 {
     if (Page == PAGE_TIMER) {
         this->isOnMyPage = true;

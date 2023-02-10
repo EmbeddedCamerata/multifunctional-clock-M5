@@ -17,25 +17,19 @@ typedef enum SysPage
     /* Right landscape, Rotation(3) */
     PAGE_TIMER,         /* T */
     PAGE_UNKNOWN
-} SysPage_e;
+} SysPageType;
 
-typedef enum WeatherSubPage
-{
-    SUB_PAGE_CURRENT_WEATHER = 0U,
-    SUB_PAGE_CURRENT_AIR_QUALITY
-} WeatherSubPage_e;
-
-typedef struct System_Attr
+typedef struct SysAttr
 {
     /* System page */
-    SysPage_e SysPage;
+    SysPageType SysPage;
     /* To check the update interval */
     struct tm LastNTPTime;
 
     EventGroupHandle_t SysEvents;
-} System_TypeDef;
+} SysTypeDef;
 
-void SystemInit(System_TypeDef *SysAttr);
+void SystemInit(SysTypeDef *SysAttr);
 void PageUpdate(void *arg);
 void ButtonsUpdate(void *arg);
 void WiFiConnectTask(void *arg);

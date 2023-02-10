@@ -1,7 +1,7 @@
 #include "../include/utils.h"
 #include <WiFi.h>
 
-extern System_TypeDef UserSystem;
+extern SysTypeDef UserSystem;
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t wifi_connected_sem;
 extern SemaphoreHandle_t lcd_draw_sem;
@@ -15,7 +15,7 @@ NTPClock::NTPClock(bool DateOnStartup) :   \
     isOnMyPage(0),                         \
     isDisplayingDate(DateOnStartup) {}
 
-void NTPClock::Init(SysPage_e Page)
+void NTPClock::Init(SysPageType Page)
 {
     int _try_time = 0;
     struct tm timeinfo;

@@ -8,7 +8,7 @@ class CountdownTimer
 public:
     CountdownTimer();
 
-    void Init(SysPage_e Page);
+    void Init(SysPageType Page);
     void Begin(uint8_t mins, uint8_t secs);
     void Pause();
     void Resume();
