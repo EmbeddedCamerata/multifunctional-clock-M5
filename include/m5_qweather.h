@@ -1,7 +1,7 @@
 #ifndef __M5_QWEATHER_H__
 #define __M5_QWEATHER_H__
 
-#include "user_system.h"
+#include "sys_main.h"
 
 typedef enum PageChanged
 {
@@ -46,16 +46,16 @@ class QWeather
 public:
 	QWeather();
 
-	void Init(SysPageType Page);
-	void ButtonsUpdate();
+	void Init(SysTypeDef *SysAttr);
+	void ButtonsUpdate(SysTypeDef *SysAttr);
 	void OnMyPage();
     void Leave();
 
-	bool GetCurWeather();
-	bool GetCurAirQuality();
+	bool GetCurWeather(EventGroupHandle_t* Events_ptr);
+	bool GetCurAirQuality(EventGroupHandle_t* Events_ptr);
 
-	void CurWeatherUpdate();
-	void CurAirQualityUpdate();
+	void CurWeatherUpdate(EventGroupHandle_t* Events_ptr);
+	void CurAirQualityUpdate(EventGroupHandle_t* Events_ptr);
 
 	inline void Inited() { this->isInited = true; };
 	inline bool IsOnMyPage() { return this->isOnMyPage; };
@@ -67,7 +67,7 @@ private:
 	QCurWeather_TypeDef CurWeatherData;
 	QCurAirQuality_TypeDef CurAirQualityData;
 
-	String ApiKey = "dca23824f42248bb9e01ff278b463e40";	/* Dev API Key */
+	String ApiKey = "dca23824f42248bb9e01ff278b463e40";	/* API Key */
 	String LocationID = "101010100";					/* Beijing */
 	String Language = "en";								/* Or zh */
 

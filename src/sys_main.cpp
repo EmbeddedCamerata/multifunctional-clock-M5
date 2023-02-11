@@ -1,4 +1,5 @@
 #include "../include/utils.h"
+#include "../include/sys_err.h"
 #include <WiFi.h>
 
 #ifdef DEBUG_MODE
@@ -14,14 +15,16 @@ extern SysTypeDef UserSystem;
 extern TaskHandle_t xhandle_clock_display;
 
 TFT_eSprite Disbuff = TFT_eSprite(&M5.Lcd);
+TaskHandle_t xhandle_wifi_connect = NULL;
 TaskHandle_t xhandle_user_ntp_init = NULL;
 TaskHandle_t xhandle_user_qweather_init = NULL;
 TaskHandle_t xhandle_user_countdown_init = NULL;
 
 /* Functions statement */
-static void PageChangRefresh(SysPageType NewPage);
+static void PageChangRefresh(SysPageType_e NewPage);
+void WiFiConnectTask(void *arg);
 void PowerDisplay();
-SysPageType IMUJudge(float accX, float accY, float accZ);
+SysPageType_e IMUJudge(float accX, float accY, float accZ);
 
 void SystemInit(SysTypeDef *SysAttr)
 {
@@ -38,7 +41,7 @@ void SystemInit(SysTypeDef *SysAttr)
 
 	// 4. Sytem page. Self-adaption rotation based on IMU
 #ifdef SYSTEM_INITIAL_PAGE_SELF_ADAPTION
-	SysPageType page;
+	SysPageType_e page;
 	float accX, accY, accZ;
 
 	if ((page = IMUJudge(accX, accY, accZ)) != PAGE_UNKNOWN) {
@@ -55,29 +58,34 @@ void SystemInit(SysTypeDef *SysAttr)
 	delay(500);
 
 	/* Initialize 4 modules */
+	xTaskCreate(WiFiConnectTask, "WiFiConnectTask", 1024*2, \
+		(void*)SysAttr, 3, &xhandle_wifi_connect
+	);
+
 	xTaskCreate(NTPClockInitTask, "NTPClockInitTask", 1024*2, \
-		(void*)0, 4, &xhandle_user_ntp_init
+		(void*)SysAttr, 4, &xhandle_user_ntp_init
 	);
 	xTaskCreate(QWeatherInitTask, "QWeatherInitTask", 1024*4, \
-		(void*)0, 4, &xhandle_user_qweather_init
+		(void*)SysAttr, 4, &xhandle_user_qweather_init
 	);
-	xTaskCreate(CountdownTimerInitTask, "CountdownTimerInitTask", \
-		1024, (void*)0, 4, &xhandle_user_countdown_init
+	xTaskCreate(CountdownTimerInitTask, "CountdownTimerInitTask", 1024, \
+		(void*)SysAttr, 4, &xhandle_user_countdown_init
 	);
 }
 
 void PageUpdate(void *arg)
 {
-	SysPageType new_page;
+	SysTypeDef *SysAttr = (SysTypeDef*)arg;
+	SysPageType_e new_page;
 	float accX, accY, accZ;
 	
 	while(1) {
 		M5.IMU.getAccelData(&accX, &accY, &accZ);
 
 		if ((new_page = IMUJudge(accX, accY, accZ)) != PAGE_UNKNOWN) {
-			if (new_page != UserSystem.SysPage) {
+			if (new_page != SysAttr->SysPage) {
 				PageChangRefresh(new_page);
-				UserSystem.SysPage = new_page;
+				SysAttr->SysPage = new_page;
 			}
 		}
 		
@@ -85,7 +93,7 @@ void PageUpdate(void *arg)
 	}
 }
 
-static void PageChangRefresh(SysPageType NewPage)
+static void PageChangRefresh(SysPageType_e NewPage)
 {
 	switch (NewPage) {
 		case PAGE_WEATHER:
@@ -154,16 +162,18 @@ static void PageChangRefresh(SysPageType NewPage)
 
 void ButtonsUpdate(void *arg)
 {
+	SysTypeDef *SysAttr = (SysTypeDef*)arg;
+
     while (1) {
         M5.update();
 
-        switch (UserSystem.SysPage) {
+        switch (SysAttr->SysPage) {
 			case PAGE_WEATHER:
-				User_QWeather.ButtonsUpdate();
+				User_QWeather.ButtonsUpdate(SysAttr);
 				break;
 
 			case PAGE_NTPCLOCK:
-				User_NTPClock.ButtonsUpdate();
+				User_NTPClock.ButtonsUpdate(SysAttr);
 
 				break;
 			
@@ -184,6 +194,7 @@ void ButtonsUpdate(void *arg)
 
 void WiFiConnectTask(void *arg)
 {
+	EventGroupHandle_t events = ((SysTypeDef*)arg)->SysEvents;
 	unsigned long dt;
 
 	Serial.printf("Connecting to %s\n", _SSID);
@@ -203,8 +214,7 @@ void WiFiConnectTask(void *arg)
     
 	Serial.println("\nConnected!");
 
-	xEventGroupSetBits(UserSystem.SysEvents, EVENT_WIFI_CONNECTED_FLAG);
-
+	xEventGroupSetBits(events, EVENT_WIFI_CONNECTED);
 	vTaskDelete(NULL);
 }
 
@@ -241,7 +251,7 @@ void PowerDisplay()
 	// xSemaphoreGive(lcd_draw_sem);
 }
 
-SysPageType IMUJudge(float accX, float accY, float accZ)
+SysPageType_e IMUJudge(float accX, float accY, float accZ)
 {
     if (1 - accX < 0.1) {
         /* accX approx 1 */

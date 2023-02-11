@@ -6,7 +6,7 @@
 #include "hw_timer.h"
 #include "m5_qweather.h"
 #include "ntp_clock.h"
-#include "user_system.h"
+#include "sys_main.h"
 
 /* Definitions of debug mode */
 #define DEBUG_MODE
@@ -42,7 +42,7 @@
 #endif
 
 /* Difinitions of countdown */
-#define RESET_TO_THE_BEGINNING         	 	/* When countdown completed, reset the countdown to the last time */
+#define RESET_TO_THE_BEGINNING				/* When countdown completed, reset the countdown to the last time */
 #define COUNTDOWN_TIMER_DEFAULT_MIN	(0)
 #define COUNTDOWN_TIMER_DEFAULT_SEC	(0)
 

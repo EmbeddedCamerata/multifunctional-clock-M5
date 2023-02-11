@@ -1,14 +1,14 @@
 #ifndef __COUNTDOWN_H__
 #define __COUNTDOWN_H__
 
-#include "user_system.h"
+#include "sys_main.h"
 
 class CountdownTimer
 {
 public:
     CountdownTimer();
 
-    void Init(SysPageType Page);
+    void Init(SysPageType_e Page);
     void Begin(uint8_t mins, uint8_t secs);
     void Pause();
     void Resume();

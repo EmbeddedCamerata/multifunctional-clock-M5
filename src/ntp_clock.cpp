@@ -1,4 +1,5 @@
 #include "../include/utils.h"
+#include "../include/sys_err.h"
 #include <WiFi.h>
 
 extern SysTypeDef UserSystem;
@@ -15,7 +16,7 @@ NTPClock::NTPClock(bool DateOnStartup) :   \
     isOnMyPage(0),                         \
     isDisplayingDate(DateOnStartup) {}
 
-void NTPClock::Init(SysPageType Page)
+void NTPClock::Init(SysTypeDef *SysAttr)
 {
     int _try_time = 0;
     struct tm timeinfo;
@@ -33,8 +34,8 @@ void NTPClock::Init(SysPageType Page)
             Serial.printf("Retries: %d/%d\n", _try_time, NTP_UPDATE_MAX_RETRY);
 #endif
             if (_try_time == NTP_UPDATE_MAX_RETRY) {
-                // TODO Error handle here
-                return;
+                xEventGroupSetBits(SysAttr->SysEvents, NTPCLOCK_SYNC_FAILED);
+                break;
             }
         } while (!this->SyncLocalTime(&timeinfo));
     }
@@ -43,10 +44,11 @@ void NTPClock::Init(SysPageType Page)
     // WiFi.disconnect(true);
     // WiFi.mode(WIFI_OFF);
 
-    xTaskCreate(ClockDisplayTask, "ClockDisplayTask", \
-        1024*2, (void*)0, 6, &xhandle_clock_display);
+    xTaskCreate(ClockDisplayTask, "ClockDisplayTask", 1024*2, \
+        (void*)SysAttr, 6, &xhandle_clock_display
+    );
 
-    if (Page == PAGE_NTPCLOCK) {
+    if (SysAttr->SysPage == PAGE_NTPCLOCK) {
         this->isOnMyPage = true;
         this->TFTRecreate();
         this->DisplayFromNTP(&timeinfo);
@@ -55,12 +57,22 @@ void NTPClock::Init(SysPageType Page)
     this->isInited = true;
 }
 
-void NTPClock::LocalTimeUpdate()
+void NTPClock::LocalTimeUpdate(EventGroupHandle_t* Events_ptr)
 {
+    int _try_time = 0;
     struct tm timeinfo;
     
     if (!this->SyncLocalTime(&timeinfo)) {
-        return;
+        do {
+            _try_time++;
+#ifdef DEBUG_MODE
+            Serial.printf("Retries: %d/%d\n", _try_time, NTP_UPDATE_MAX_RETRY);
+#endif
+            if (_try_time == NTP_UPDATE_MAX_RETRY) {
+                xEventGroupSetBits(*Events_ptr, NTPCLOCK_SYNC_FAILED);
+                return;
+            }
+        } while (!this->SyncLocalTime(&timeinfo));
     }
     
     if (this->isOnMyPage) {
@@ -68,11 +80,11 @@ void NTPClock::LocalTimeUpdate()
     }
 }
 
-void NTPClock::ButtonsUpdate()
+void NTPClock::ButtonsUpdate(SysTypeDef *SysAttr)
 {
     if (M5.BtnA.wasReleased()) {
         /* Short press of BtnA for updating NTP time immediately */
-        this->LocalTimeUpdate();
+        this->LocalTimeUpdate(&(SysAttr->SysEvents));
     }
     else if (M5.BtnB.wasReleased()) {
         
@@ -220,6 +232,7 @@ void NTPClock::SetRTC(struct tm *TimeInfo)
 
 void ClockDisplayTask(void *arg)
 {
+    SysTypeDef *SysAttr = (SysTypeDef*)arg;
     int _interval = 0;
 
     while (1) {
@@ -229,7 +242,7 @@ void ClockDisplayTask(void *arg)
         _interval++;
         if (_interval == 60 * NTP_CALIBRATION_INTERVAL) {
             _interval = 0;
-            User_NTPClock.LocalTimeUpdate();
+            User_NTPClock.LocalTimeUpdate(&(SysAttr->SysEvents));
         }
 #endif
         
@@ -241,14 +254,24 @@ void ClockDisplayTask(void *arg)
 
 void NTPClockInitTask(void *arg)
 {
-    xEventGroupWaitBits(
-        UserSystem.SysEvents, EVENT_WIFI_CONNECTED_FLAG, \
-        pdFALSE, pdTRUE, portMAX_DELAY
+    SysTypeDef *SysAttr = (SysTypeDef*)arg;
+    EventBits_t bits;
+    
+    bits = xEventGroupWaitBits(
+        SysAttr->SysEvents,
+        EVENT_WIFI_CONNECTED,
+        pdTRUE,
+        pdTRUE,
+        (WIFI_CONNECTION_TIMEOUT * 1000UL) / portTICK_RATE_MS
     );
+    
+    if (bits & EVENT_WIFI_CONNECTED) 
+    {
+        User_NTPClock.Init(SysAttr);
+    } 
+    else {
 
-    User_NTPClock.Init(UserSystem.SysPage);
-
-    xEventGroupSetBits(UserSystem.SysEvents, EVENT_NTP_INITIAL_OK_FLAG);
+    }
 
     vTaskDelete(NULL);
 }

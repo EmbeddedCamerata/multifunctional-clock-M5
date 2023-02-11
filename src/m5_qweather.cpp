@@ -1,4 +1,5 @@
 #include "../include/utils.h"
+#include "../include/sys_err.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -18,16 +19,16 @@ QWeather::QWeather() :                  \
     isInited(0),                        \
     isOnMyPage(0) {};
 
-void QWeather::Init(SysPageType Page)
+void QWeather::Init(SysTypeDef *SysAttr)
 {
     if (this->isInited) {
         return;
     }
 
-    this->GetCurWeather();
-    this->GetCurAirQuality();
+    this->GetCurWeather(&(SysAttr->SysEvents));
+    this->GetCurAirQuality(&(SysAttr->SysEvents));
 
-    if (Page == PAGE_WEATHER) {
+    if (SysAttr->SysPage == PAGE_WEATHER) {
         this->isOnMyPage = true;
         this->TFTRecreate();
         this->DisplaySubPage();
@@ -36,7 +37,7 @@ void QWeather::Init(SysPageType Page)
     this->isInited = true;
 }
 
-void QWeather::ButtonsUpdate()
+void QWeather::ButtonsUpdate(SysTypeDef *SysAttr)
 {
     if (M5.BtnA.wasReleased()) {
         /* Short press of BtnA for switching the sub page */
@@ -49,10 +50,10 @@ void QWeather::ButtonsUpdate()
     else if (M5.BtnA.wasReleasefor(500)) {
         /* Long press of BtnA for updating current weather & air quality immediately */
         xTaskCreate(CurWeatherUpdateTask, "CurWeatherUpdateTask", \
-            1024*4, (void*)0, 6, &xhandle_cur_weather_update);
+            1024*4, (void*)SysAttr, 6, &xhandle_cur_weather_update);
         
         xTaskCreate(CurAirQualityUpdateTask, "CurAirQualityUpdateTask", \
-            1024*4, (void*)0, 6, &xhandle_cur_air_quality_update);
+            1024*4, (void*)SysAttr, 6, &xhandle_cur_air_quality_update);
     }
     else if (M5.BtnB.wasReleased()) {
         
@@ -72,7 +73,7 @@ void QWeather::Leave()
     this->isOnMyPage = false;
 }
 
-bool QWeather::GetCurWeather()
+bool QWeather::GetCurWeather(EventGroupHandle_t* Events_ptr)
 {
     int _try_time = 0;
     String url = "https://devapi.qweather.com/v7/weather/now?location=" + this->LocationID + \
@@ -88,6 +89,7 @@ bool QWeather::GetCurWeather()
 #ifdef DEBUG_MODE
                 Serial.println("Get current weather failed!");
 #endif
+                xEventGroupSetBits(*Events_ptr, QWEATHER_UPDATE_FAILED);
                 return false;
             }
         } while (!this->ParseRequest(url, URL_CURRENT_WEATHER));
@@ -96,7 +98,7 @@ bool QWeather::GetCurWeather()
     return true;
 }
 
-bool QWeather::GetCurAirQuality()
+bool QWeather::GetCurAirQuality(EventGroupHandle_t* Events_ptr)
 {
     int _try_time = 0;
     String url = "https://devapi.qweather.com/v7/air/now?location=" + this->LocationID + \
@@ -112,6 +114,7 @@ bool QWeather::GetCurAirQuality()
 #ifdef DEBUG_MODE
                 Serial.println("Get current air quality failed!");
 #endif
+                xEventGroupSetBits(*Events_ptr, QWEATHER_UPDATE_FAILED);
                 return false;
             }
         } while (!this->ParseRequest(url, URL_CURRENT_AIR_QUALITY));
@@ -251,18 +254,22 @@ void QWeather::TFTRecreate()
     xSemaphoreGive(lcd_draw_sem);
 }
 
-void QWeather::CurWeatherUpdate()
+void QWeather::CurWeatherUpdate(EventGroupHandle_t* Events_ptr)
 {
-    this->GetCurWeather();
+    int _try_time = 0;
+
+    this->GetCurWeather(Events_ptr);
     
     if (this->isOnMyPage and this->SubPage == SUB_PAGE_CURRENT_WEATHER) {
         this->DisplayCurWeather();
     }
 }
 
-void QWeather::CurAirQualityUpdate()
+void QWeather::CurAirQualityUpdate(EventGroupHandle_t* Events_ptr)
 {
-    this->GetCurAirQuality();
+    int _try_time = 0;
+
+    this->GetCurAirQuality(Events_ptr);
 
     if (this->isOnMyPage and this->SubPage == SUB_PAGE_CURRENT_AIR_QUALITY) {
         this->DisplayCurAirQuality();
@@ -292,6 +299,7 @@ bool QWeather::ParseRequest(String Url, QWeatherUrlType UrlType)
 #ifdef DEBUG_MODE
                 Serial.println(payload);
 #endif
+                http.end();
                 break;
             }
         }
@@ -312,8 +320,6 @@ bool QWeather::ParseRequest(String Url, QWeatherUrlType UrlType)
     else if (UrlType == URL_CURRENT_AIR_QUALITY) {
         ret = this->ParseCurAirQuality(payload);
     }
-
-    http.end();
     
     return ret;
 }
@@ -379,7 +385,7 @@ bool QWeather::ParseCurAirQuality(String Payload)
 	}
 
 	if (doc["code"].as<int>() != 200) {
-		Serial.println("Current weather request failed!");
+		Serial.println("Current air quality request failed!");
 		return false;
 	}
 
@@ -397,25 +403,38 @@ bool QWeather::ParseCurAirQuality(String Payload)
 }
 
 void QWeatherInitTask(void *arg)
-{	
-    xEventGroupWaitBits(
-        UserSystem.SysEvents,                                   \
-        EVENT_WIFI_CONNECTED_FLAG | EVENT_NTP_INITIAL_OK_FLAG,  \
-        pdTRUE, pdTRUE, portMAX_DELAY
+{
+    SysTypeDef *SysAttr = (SysTypeDef*)arg;
+    EventBits_t bits;
+    
+    bits = xEventGroupWaitBits(
+        SysAttr->SysEvents,
+        EVENT_WIFI_CONNECTED,
+        pdFALSE,
+        pdTRUE,
+        (WIFI_CONNECTION_TIMEOUT * 1000UL) / portTICK_RATE_MS
     );
-    User_QWeather.Init(UserSystem.SysPage);
+    
+    if (bits & EVENT_WIFI_CONNECTED) 
+    {
+        User_QWeather.Init(SysAttr);
+    } 
+    else {
+        
+    }
+
     vTaskDelete(NULL);
 }
 
 void CurWeatherUpdateTask(void *arg)
 {
-    User_QWeather.CurWeatherUpdate();
+    User_QWeather.CurWeatherUpdate(&(((SysTypeDef*)arg)->SysEvents));
     vTaskDelete(NULL);
 }
 
 void CurAirQualityUpdateTask(void *arg)
 {
-    User_QWeather.CurAirQualityUpdate();
+    User_QWeather.CurAirQualityUpdate(&(((SysTypeDef*)arg)->SysEvents));
     vTaskDelete(NULL);
 }
 

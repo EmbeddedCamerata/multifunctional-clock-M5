@@ -5,8 +5,6 @@ SysTypeDef UserSystem = {
 	.SysEvents = NULL
 };
 
-TaskHandle_t xhandle_wifi_connect = NULL;
-TaskHandle_t xhandle_system_init = NULL;
 TaskHandle_t xhandle_page_update = NULL;
 TaskHandle_t xhandle_buttons_update = NULL;
 SemaphoreHandle_t lcd_draw_sem = NULL;
@@ -16,24 +14,20 @@ void setup()
 	M5.begin();
 
 	// 1. Create semaphores
-	lcd_draw_sem = xSemaphoreCreateMutex();
-	if (lcd_draw_sem == NULL) {
+	if ((lcd_draw_sem = xSemaphoreCreateMutex()) == NULL) {
 		Serial.println("Semaphore created failed!");
 		return;
 	}
 
-	UserSystem.SysEvents = xEventGroupCreate();
-	if (UserSystem.SysEvents == NULL) {
+	if ((UserSystem.SysEvents = xEventGroupCreate()) == NULL) {
 		Serial.println("Event group created failed!");
 		return;
 	}
-
-	xTaskCreate(WiFiConnectTask, "WiFiConnectTask", 1024*2, (void*)0, 3, &xhandle_wifi_connect);
 	
 	SystemInit(&UserSystem);
 
-	xTaskCreate(PageUpdate, "PageUpdate", 1024*2, (void*)0, 4, &xhandle_page_update);
-	xTaskCreate(ButtonsUpdate, "ButtonsUpdate", 1024*2, (void*)0, 5, &xhandle_buttons_update);
+	xTaskCreate(PageUpdate, "PageUpdate", 1024*2, (void*)&UserSystem, 4, &xhandle_page_update);
+	xTaskCreate(ButtonsUpdate, "ButtonsUpdate", 1024*2, (void*)&UserSystem, 5, &xhandle_buttons_update);
 }
 
 void loop()

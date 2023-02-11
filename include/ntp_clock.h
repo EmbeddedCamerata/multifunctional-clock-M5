@@ -1,7 +1,7 @@
 #ifndef __NTP_CLOCK_H__
 #define __NTP_CLOCK_H__
 
-#include "user_system.h"
+#include "sys_main.h"
 #include <time.h>
 
 class NTPClock
@@ -9,10 +9,10 @@ class NTPClock
 public:
     NTPClock(bool DateOnStartup = false);
 
-    void Init(SysPageType Page);
+    void Init(SysTypeDef *SysAttr);
 
-    void LocalTimeUpdate();
-    void ButtonsUpdate();
+    void LocalTimeUpdate(EventGroupHandle_t* Events_ptr);
+    void ButtonsUpdate(SysTypeDef *SysAttr);
 
     void DisplayFromNTP(struct tm *TimeInfo, TickType_t Tick = portMAX_DELAY);
     void DisplayFromRTC(bool ChimeEnable, TickType_t Tick = portMAX_DELAY);
@@ -42,7 +42,9 @@ private:
     const char *ntpServer = "time1.aliyun.com";
     const long gmtOffset_sec = 8 * 3600;
     const int daylightOffset_sec = 3600;
-    const char *Weekdays[7] = {"Sun", "Mon", "Tues", "Wed", "Thu", "Wed", "Sat"};
+    const char *Weekdays[7] = {
+        "Sun", "Mon", "Tues", "Wed", "Thu", "Wed", "Sat"
+    };
     const char *Months[12] = {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"

@@ -17,7 +17,7 @@ CountdownTimer::CountdownTimer() :          \
     cur_min(COUNTDOWN_TIMER_DEFAULT_MIN),   \
     cur_sec(COUNTDOWN_TIMER_DEFAULT_SEC) {}
 
-void CountdownTimer::Init(SysPageType Page)
+void CountdownTimer::Init(SysPageType_e Page)
 {
     if (Page == PAGE_TIMER) {
         this->isOnMyPage = true;
@@ -305,7 +305,9 @@ void CountdownTimer::SetCoundown()
 
 void CountdownTimerInitTask(void *arg)
 {
-    User_CountdownTimer.Init(UserSystem.SysPage);
+    SysPageType_e page = ((SysTypeDef*)arg)->SysPage;
+    
+    User_CountdownTimer.Init(page);
     vTaskDelete(NULL);
 }
 
