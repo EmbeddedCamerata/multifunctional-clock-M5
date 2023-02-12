@@ -15,7 +15,7 @@ void CurWeatherUpdateTask(void *arg);
 void CurAirQualityUpdateTask(void *arg);
 
 QWeather::QWeather() :                  \
-    SubPage(SUB_PAGE_CURRENT_WEATHER),  \
+    SubPage(SUBPAGE_CURRENT_WEATHER),   \
     isInited(0),                        \
     isOnMyPage(0) {};
 
@@ -41,7 +41,7 @@ void QWeather::ButtonsUpdate(SysTypeDef *SysAttr)
 {
     if (M5.BtnA.wasReleased()) {
         /* Short press of BtnA for switching the sub page */
-        this->SubPage = (WeatherSubPageType)(1 - (int)this->SubPage);
+        this->SubPage = (WeatherSubPageType_e)(1 - (int)this->SubPage);
 #ifdef DEBUG_MODE
         Serial.printf("Sub page: %d\n", (int)this->SubPage);
 #endif
@@ -63,7 +63,7 @@ void QWeather::ButtonsUpdate(SysTypeDef *SysAttr)
 void QWeather::OnMyPage()
 {
     this->isOnMyPage = true;
-    this->SubPage = SUB_PAGE_CURRENT_WEATHER;
+    this->SubPage = SUBPAGE_CURRENT_WEATHER;
     this->TFTRecreate();
     this->DisplayCurWeather();
 }
@@ -125,10 +125,10 @@ bool QWeather::GetCurAirQuality(EventGroupHandle_t* Events_ptr)
 
 void QWeather::DisplaySubPage()
 {
-    if (this->SubPage == SUB_PAGE_CURRENT_WEATHER) {
+    if (this->SubPage == SUBPAGE_CURRENT_WEATHER) {
         this->DisplayCurWeather();
     }
-    else if (this->SubPage == SUB_PAGE_CURRENT_AIR_QUALITY) {
+    else if (this->SubPage == SUBPAGE_CURRENT_AIR_QUALITY) {
         this->DisplayCurAirQuality();
     }
 }
@@ -260,7 +260,7 @@ void QWeather::CurWeatherUpdate(EventGroupHandle_t* Events_ptr)
 
     this->GetCurWeather(Events_ptr);
     
-    if (this->isOnMyPage and this->SubPage == SUB_PAGE_CURRENT_WEATHER) {
+    if (this->isOnMyPage and this->SubPage == SUBPAGE_CURRENT_WEATHER) {
         this->DisplayCurWeather();
     }
 }
@@ -271,12 +271,12 @@ void QWeather::CurAirQualityUpdate(EventGroupHandle_t* Events_ptr)
 
     this->GetCurAirQuality(Events_ptr);
 
-    if (this->isOnMyPage and this->SubPage == SUB_PAGE_CURRENT_AIR_QUALITY) {
+    if (this->isOnMyPage and this->SubPage == SUBPAGE_CURRENT_AIR_QUALITY) {
         this->DisplayCurAirQuality();
     }
 }
 
-bool QWeather::ParseRequest(String Url, QWeatherUrlType UrlType)
+bool QWeather::ParseRequest(String Url, QWeatherUrlType_e UrlType)
 {
     String payload;
     HTTPClient http;

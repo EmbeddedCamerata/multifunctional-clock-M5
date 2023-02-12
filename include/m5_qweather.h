@@ -3,23 +3,23 @@
 
 #include "sys_main.h"
 
-typedef enum PageChanged
+typedef enum
 {
     MAIN_PAGE_CHANGED = 0U,
     SUB_PAGE_CHANGED
-} PageChangedType;
+} PageChangedType_e;
 
-typedef enum WeatherSubPage
+typedef enum
 {
-    SUB_PAGE_CURRENT_WEATHER = 0U,
-    SUB_PAGE_CURRENT_AIR_QUALITY
-} WeatherSubPageType;
+    SUBPAGE_CURRENT_WEATHER = 0U,
+    SUBPAGE_CURRENT_AIR_QUALITY
+} WeatherSubPageType_e;
 
-typedef enum QWeatherUrl
+typedef enum
 {
 	URL_CURRENT_WEATHER = 0U,
 	URL_CURRENT_AIR_QUALITY
-} QWeatherUrlType;
+} QWeatherUrlType_e;
 
 typedef struct QCurWeather_Attr
 {
@@ -28,7 +28,7 @@ typedef struct QCurWeather_Attr
 	int icon;
 	String text;
 	int humidity;
-} QCurWeather_TypeDef, *QCurWeather_Ptr;
+} QCurWeather_TypeDef;
 
 typedef struct QCurAirQuality_Attr
 {
@@ -39,7 +39,7 @@ typedef struct QCurAirQuality_Attr
 	String primary;
 	int pm10;
 	int pm2p5;
-} QCurAirQuality_TypeDef, *QCurAirQuality_Ptr;
+} QCurAirQuality_TypeDef;
 
 class QWeather
 {
@@ -63,7 +63,7 @@ public:
 private:
 	bool isInited;
     bool isOnMyPage;
-	WeatherSubPageType SubPage;
+	WeatherSubPageType_e SubPage;
 	QCurWeather_TypeDef CurWeatherData;
 	QCurAirQuality_TypeDef CurAirQualityData;
 
@@ -77,7 +77,7 @@ private:
 	void DisplayCurWeather();
 	void DisplayCurAirQuality();
 
-	bool ParseRequest(String Url, QWeatherUrlType UrlType);
+	bool ParseRequest(String Url, QWeatherUrlType_e UrlType);
 	bool ParseCurWeather(String Payload);
 	bool ParseCurAirQuality(String Payload);
 };
