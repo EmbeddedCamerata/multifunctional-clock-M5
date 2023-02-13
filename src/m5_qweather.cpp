@@ -14,9 +14,8 @@ TaskHandle_t xhandle_cur_air_quality_update = NULL;
 void CurWeatherUpdateTask(void *arg);
 void CurAirQualityUpdateTask(void *arg);
 
-QWeather::QWeather() :                  \
-    SubPage(SUBPAGE_CURRENT_WEATHER),   \
-    isInited(0),                        \
+QWeather::QWeather() :  \
+    isInited(0),        \
     isOnMyPage(0) {};
 
 void QWeather::Init(SysTypeDef *SysAttr)
@@ -24,6 +23,8 @@ void QWeather::Init(SysTypeDef *SysAttr)
     if (this->isInited) {
         return;
     }
+
+   this-> SubPage = SUBPAGE_CURRENT_WEATHER;
 
     this->GetCurWeather(&(SysAttr->SysEvents));
     this->GetCurAirQuality(&(SysAttr->SysEvents));

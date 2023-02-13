@@ -19,6 +19,12 @@ typedef struct
     uint8_t Minutes;
 } AlarmTimeTypeDef;
 
+typedef struct
+{
+	AlarmTimeTypeDef *AlarmList[MAX_ALARM_NUM];
+	int WorkingAlarmNum;
+} AlarmDataTypeDef;
+
 class Alarm
 {
 public:
@@ -29,13 +35,18 @@ public:
 	void OnMyPage();
     void Leave();
 
+	void AddNewAlarm();
+
 	inline void Inited() { this->isInited = true; };
 	inline bool IsOnMyPage() { return this->isOnMyPage; };
 
 private:
 	bool isInited;
 	bool isOnMyPage;
+	AlarmTimeTypeDef CurAlarmTime;
 	CurPointingLocType_e CurPointingLoc;
+
+	AlarmDataTypeDef AlarmData;
 };
 
 extern Alarm User_Alarm;
