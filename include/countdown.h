@@ -3,6 +3,12 @@
 
 #include "sys_main.h"
 
+typedef enum
+{
+    RESET_BY_USER_TIMEUP = 0U,
+    NORMAL_TIMEUP
+} TimeUpType_e;
+
 class CountdownTimer
 {
 public:
@@ -12,7 +18,7 @@ public:
     void Begin(uint8_t mins, uint8_t secs);
     void Pause();
     void Resume();
-    void Stop(bool isReset = false);
+    void Stop(TimeUpType_e TimeUpType);
 
     void OnMyPage();
     void Leave();
@@ -23,8 +29,6 @@ public:
     inline bool IsOnMyPage() { return this->isOnMyPage; };
     inline bool IsStopped() { return (not this->isWorking) and (not this->isActivated); };
     inline bool IsWorking() { return this->isWorking; };
-
-    uint8_t set_min, set_sec;
 
 private:
     void SetCoundown();
@@ -37,6 +41,7 @@ private:
     bool isActivated;   // Whether it starts counting down
     bool isWorking;     // Whether it is counting down
     bool isOnMyPage;
+    uint8_t set_min, set_sec;
     uint8_t cur_min, cur_sec;
 };
 

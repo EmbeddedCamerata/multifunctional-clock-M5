@@ -1,6 +1,5 @@
 #include "../include/utils.h"
 
-extern SysTypeDef UserSystem;
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t lcd_draw_sem;
 
@@ -63,8 +62,12 @@ void CountdownTimer::Resume()
 	this->StatusPromptDisplay("Resume");
 }
 
-void CountdownTimer::Stop(bool isReset)
+void CountdownTimer::Stop(TimeUpType_e TimeUpType)
 {
+    if (xhandle_countdown_timer_update != NULL) {
+        vTaskDelete(xhandle_countdown_timer_update);
+    }
+
     /* Turn off the LED */
     digitalWrite(M5_LED, HIGH);
 
@@ -83,12 +86,11 @@ void CountdownTimer::Stop(bool isReset)
 	xSemaphoreGive(lcd_draw_sem);
 
 	if (xhandle_countdown_timer_update != xTaskGetCurrentTaskHandle()) {
-		/* Entering into Stop() from ButtonsUpdate */
-		if (xhandle_countdown_timer_update != NULL) {
-			vTaskDelete(xhandle_countdown_timer_update);
-		}
-
-		if (isReset) {
+		/* 
+            Entering into Stop() from function ButtonsUpdate.
+            Only happens when in my page.
+        */
+		if (TimeUpType == RESET_BY_USER_TIMEUP) {
 			this->StatusPromptDisplay("Reset");
 		}
 		else {
@@ -96,18 +98,14 @@ void CountdownTimer::Stop(bool isReset)
 		}
 	}
 	else {
-		/* Entering into Stop() from CountdownUpdateTask */
+        /* Entering into Stop() from task CountdownUpdateTask */
 		if (this->isOnMyPage) {
-			if (isReset) {
+			if (TimeUpType == RESET_BY_USER_TIMEUP) {
 				this->StatusPromptDisplay("Reset");
 			}
 			else {
 				this->StatusPromptDisplay("Time up!");
 			}
-		}
-
-		if (xhandle_countdown_timer_update != NULL) {
-			vTaskDelete(xhandle_countdown_timer_update);
 		}
 	}
 }
@@ -136,7 +134,7 @@ void CountdownTimer::TimerUpdate()
     }
 
     if (this->cur_min == 0 and this->cur_sec == 0) {
-        this->Stop();
+        this->Stop(NORMAL_TIMEUP);
     }
 }
 
@@ -154,7 +152,7 @@ void CountdownTimer::ButtonsUpdate()
 		}
         else if (M5.BtnA.wasReleasefor(500)) {
             /* Reset */
-            this->Stop(true);
+            this->Stop(RESET_BY_USER_TIMEUP);
         }
 	}
 	/* Buttons judgement in idle */
@@ -178,10 +176,9 @@ void CountdownTimer::TFTRecreate()
     xSemaphoreGive(lcd_draw_sem);
 }
 
-/*
-    @brief 
-        Display countdown when setting without xSemaphoreTake
-*/
+/**
+ * @brief Display countdown when setting without xSemaphoreTake
+ */
 void CountdownTimer::StaticDisplay(uint8_t mins, uint8_t secs)
 {
 	Disbuff.setTextSize(4);

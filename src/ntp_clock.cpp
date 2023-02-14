@@ -2,7 +2,6 @@
 #include "../include/sys_err.h"
 #include <WiFi.h>
 
-extern SysTypeDef UserSystem;
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t wifi_connected_sem;
 extern SemaphoreHandle_t lcd_draw_sem;

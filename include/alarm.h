@@ -41,6 +41,9 @@ public:
 	inline bool IsOnMyPage() { return this->isOnMyPage; };
 
 private:
+	void TFTRecreate();
+	void DisplayAlarmTime();
+
 	bool isInited;
 	bool isOnMyPage;
 	AlarmTimeTypeDef CurAlarmTime;

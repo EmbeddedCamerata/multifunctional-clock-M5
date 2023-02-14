@@ -11,7 +11,6 @@ const char *PageStr[4] = {
 };
 #endif
 
-extern SysTypeDef UserSystem;
 extern TaskHandle_t xhandle_clock_display;
 
 TFT_eSprite Disbuff = TFT_eSprite(&M5.Lcd);

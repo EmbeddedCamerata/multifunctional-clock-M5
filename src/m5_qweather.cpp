@@ -4,7 +4,6 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-extern SysTypeDef UserSystem;
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t lcd_draw_sem;
 
