@@ -251,7 +251,10 @@ void ClockDisplayTask(void *arg)
     }
 }
 
-void NTPClockInitTask(void *arg)
+/**
+ * @note After startup, the RTC is running even if the wifi is NOT CONNECTED yet.
+ */
+void NTPClockInitTask(void *arg) // TODO
 {
     SysTypeDef *SysAttr = (SysTypeDef*)arg;
     EventBits_t bits;

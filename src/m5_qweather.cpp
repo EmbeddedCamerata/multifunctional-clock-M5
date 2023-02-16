@@ -123,7 +123,10 @@ bool QWeather::GetCurAirQuality(EventGroupHandle_t* Events_ptr)
     return true;
 }
 
-void QWeather::DisplaySubPage()
+/**
+ * @breif Display the subpage status and info.
+ */
+void QWeather::DisplaySubPage() // TODO
 {
     if (this->SubPage == SUBPAGE_CURRENT_WEATHER) {
         this->DisplayCurWeather();

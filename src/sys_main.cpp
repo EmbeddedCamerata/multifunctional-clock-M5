@@ -7,7 +7,7 @@ const char *PageStr[4] = {
     "PAGE_WEATHER",
 	"PAGE_NTPCLOCK",
 	"PAGE_SET_ALARM",
-    "PAGE_TIMER",
+    "PAGE_TIMER"
 };
 #endif
 
@@ -18,6 +18,7 @@ TaskHandle_t xhandle_wifi_connect = NULL;
 TaskHandle_t xhandle_user_ntp_init = NULL;
 TaskHandle_t xhandle_user_qweather_init = NULL;
 TaskHandle_t xhandle_user_countdown_init = NULL;
+TaskHandle_t xhandle_user_alarm_init = NULL;
 
 /* Functions statement */
 static void PageChangRefresh(SysPageType_e NewPage);
@@ -27,18 +28,18 @@ SysPageType_e IMUJudge(float accX, float accY, float accZ);
 
 void SystemInit(SysTypeDef *SysAttr)
 {
-	// 2. LED
+	// 1. LED
 	pinMode(M5_LED, OUTPUT);
 	digitalWrite(M5_LED, HIGH);
 
-	// 3. IMU
+	// 2. IMU
     int rc = M5.IMU.Init(); /* return 0 is ok, return -1 is unknow */
 	if (rc < 0) {
 		Serial.printf("IMU init error: %d\n", rc);
 		return;
 	}
 
-	// 4. Sytem page. Self-adaption rotation based on IMU
+	// 3. Sytem page. Self-adaption rotation based on IMU
 #ifdef SYSTEM_INITIAL_PAGE_SELF_ADAPTION
 	SysPageType_e page;
 	float accX, accY, accZ;
@@ -53,10 +54,12 @@ void SystemInit(SysTypeDef *SysAttr)
 	SysAttr->SysPage = SYSTEM_DEFAULT_PAGE;
 #endif
 
+#ifdef DEBUG_MODE
 	Serial.println("System init OK");
+#endif
 	delay(500);
 
-	/* Initialize 4 modules */
+	/* 4. Initialize 4 modules */
 	xTaskCreate(WiFiConnectTask, "WiFiConnectTask", 1024*2, \
 		(void*)SysAttr, 3, &xhandle_wifi_connect
 	);
@@ -69,6 +72,9 @@ void SystemInit(SysTypeDef *SysAttr)
 	);
 	xTaskCreate(CountdownTimerInitTask, "CountdownTimerInitTask", 1024, \
 		(void*)SysAttr, 4, &xhandle_user_countdown_init
+	);
+	xTaskCreate(AlarmInitTask, "AlarmInitTask", 1024, \
+		(void*)SysAttr, 4, &xhandle_user_alarm_init
 	);
 }
 
@@ -99,6 +105,7 @@ static void PageChangRefresh(SysPageType_e NewPage)
 			/* Leave */
 			User_CountdownTimer.Leave();
 			User_NTPClock.Leave();
+			User_Alarm.Leave();
 
 			/* Suspend Clock display task */
 			if (xhandle_clock_display != NULL) {
@@ -113,12 +120,13 @@ static void PageChangRefresh(SysPageType_e NewPage)
 			/* Leave */
 			User_CountdownTimer.Leave();
 			User_QWeather.Leave();
-
-			User_NTPClock.OnMyPage();
+			User_Alarm.Leave();
 
 			if (xhandle_clock_display != NULL) {
 				vTaskResume(xhandle_clock_display);
 			}
+
+			User_NTPClock.OnMyPage();
 
 			break;
 		
@@ -132,6 +140,8 @@ static void PageChangRefresh(SysPageType_e NewPage)
 			if (xhandle_clock_display != NULL) {
 				vTaskSuspend(xhandle_clock_display);
 			}
+			
+			User_Alarm.OnMyPage();
 
 			break;
 		
@@ -139,6 +149,7 @@ static void PageChangRefresh(SysPageType_e NewPage)
 			/* Leave */
 			User_NTPClock.Leave();
 			User_QWeather.Leave();
+			User_Alarm.Leave();
 			/*
 				Suspend tasks of other pages
 			*/
@@ -177,11 +188,11 @@ void ButtonsUpdate(void *arg)
 				break;
 			
 			case PAGE_SET_ALARM:
+				User_Alarm.ButtonsUpdate(SysAttr);
 				break;
 
 			case PAGE_TIMER:
 				User_CountdownTimer.ButtonsUpdate();
-				
 				break;
 			
 			default: break;
@@ -191,6 +202,7 @@ void ButtonsUpdate(void *arg)
     }
 }
 
+/* TODO Smartconfig support. */
 void WiFiConnectTask(void *arg)
 {
 	EventGroupHandle_t events = ((SysTypeDef*)arg)->SysEvents;

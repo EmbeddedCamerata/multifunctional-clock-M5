@@ -30,7 +30,7 @@ class Alarm
 public:
 	Alarm();
 
-	void Init(SysTypeDef *SysAttr);
+	void Init(SysPageType_e Page);
 	void ButtonsUpdate(SysTypeDef *SysAttr);
 	void OnMyPage();
     void Leave();
@@ -42,7 +42,8 @@ public:
 
 private:
 	void TFTRecreate();
-	void DisplayAlarmTime();
+	void DisplayCurAlarmTime();
+	void DisplayAlarmStatus();
 
 	bool isInited;
 	bool isOnMyPage;
@@ -51,6 +52,8 @@ private:
 
 	AlarmDataTypeDef AlarmData;
 };
+
+void AlarmInitTask(void *arg);
 
 extern Alarm User_Alarm;
 

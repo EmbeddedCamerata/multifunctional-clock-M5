@@ -19,8 +19,7 @@ CountdownTimer::CountdownTimer() :          \
 void CountdownTimer::Init(SysPageType_e Page)
 {
     if (Page == PAGE_TIMER) {
-        this->isOnMyPage = true;
-        this->TFTRecreate();
+        this->OnMyPage();
     }
 }
 

@@ -15,6 +15,7 @@
 #define POWER_DISPLAY
 #endif
 
+/* Definitions of error handling */
 #define MAX_RETRY 					(3)
 #ifdef MAX_RETRY
 #define NTP_UPDATE_MAX_RETRY  		MAX_RETRY
@@ -29,7 +30,10 @@
 
 /* Definitions of system */
 #define SYSTEM_INITIAL_PAGE_SELF_ADAPTION
-#define SYSTEM_DEFAULT_PAGE			PAGE_WEATHER
+#define SYSTEM_DEFAULT_PAGE			PAGE_TIMER
+#define WIFI_SMARTCONFIG_ENABLE				/* Enable WIFI smart config via ESPTouch app before using ssid and password */
+#define _SSID 						"cfpzr"
+#define _PASSWORD 					"20000804"
 
 #define TFT_LANDSCAPE_WIDTH     	TFT_HEIGHT
 #define TFT_LANDSCAPE_HEIGHT    	TFT_WIDTH
@@ -49,8 +53,5 @@
 
 /* Difinitions of QWeather */
 #define QWEATHER_HTTP_TIMEOUT 		HTTP_CONNECTION_TIMEOUT
-
-#define _SSID 						"cfpzr"
-#define _PASSWORD 					"20000804"
 
 #endif /* __UTILS_H__ */
