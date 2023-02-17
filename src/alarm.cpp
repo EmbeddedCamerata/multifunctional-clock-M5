@@ -15,11 +15,10 @@ void Alarm::Init(SysPageType_e Page)
     }
 
 	this->CurPointingLoc = MINUTE_HIGH;
-	this->CurAlarmTime = {.Hours = 0, .Minutes = 0};
-	
-	this->AlarmData.WorkingAlarmNum = 0;
-	for (int i = 0; i < MAX_ALARM_NUM; i++) {
-		this->AlarmData.AlarmList[i] = NULL;
+	this->CurAlarmTime = {.Hours = 0, .Minutes = 0, .inUsed = false};
+
+	for (int i = 0; i < ALARM_MAX_NUM; i++) {
+		this->AlarmList[i] = NULL;
 	}
 
 	if (Page == PAGE_SET_ALARM) {
@@ -29,7 +28,13 @@ void Alarm::Init(SysPageType_e Page)
 
 void Alarm::ButtonsUpdate(SysTypeDef *SysAttr)
 {
-
+	// TODO
+	/*
+		Long press for BtnA to switch the CurPointingLoc
+		Short press for BtnA to increse the value of CurAlarmTime of CurPointingLoc
+		Long press for BtnB to check the next alarm time and can change it(optional)
+		Short press for BtnB...
+	*/
 }
 
 void Alarm::OnMyPage()
@@ -56,7 +61,7 @@ void Alarm::AddNewAlarm()
 		NewAlarmTime->Hours = this->CurAlarmTime.Hours;
 		NewAlarmTime->Minutes = this->CurAlarmTime.Minutes;
 
-		this->AlarmData.AlarmList[this->AlarmData.WorkingAlarmNum] = NewAlarmTime;
+		this->AlarmList[this->AlarmData.WorkingAlarmNum] = NewAlarmTime;
 #ifdef DEBUG_MODE
 		Serial.printf("Alarm %d:%d\n", 											\
 			this->AlarmData.AlarmList[this->AlarmData.WorkingAlarmNum]->Hours, 	\
@@ -68,6 +73,59 @@ void Alarm::AddNewAlarm()
 	}
 
 	delete NewAlarmTime;
+}
+
+void Alarm::ChangeAlarmTime()
+{
+	switch (this->CurPointingLoc) {
+		case HOUR_HIGH:
+			if (this->CurAlarmTime.Hours >= 20) {
+				/* >=20 */
+				this->CurAlarmTime.Hours -= 20;
+			}
+			else if (this->CurAlarmTime.Hours > 13) {
+				/* >13 */
+				this->CurAlarmTime.Hours -= 10;
+			}
+			else {
+				/* <13, add 10 */
+				this->CurAlarmTime.Hours += 10;
+			}
+			break;
+		
+		case HOUR_LOW:
+			if (this->CurAlarmTime.Hours == 23) {
+				this->CurAlarmTime.Hours = 0;
+			}
+			else if (this->CurAlarmTime.Hours % 10 == 9) {
+				/* 09 or 19, subtract 9 */
+				this->CurAlarmTime.Hours -= 9;
+			}
+			else {
+				this->CurAlarmTime.Hours++;
+			}
+			break;
+		
+		case MINUTE_HIGH:
+			if (this->CurAlarmTime.Minutes >= 50) {
+				this->CurAlarmTime.Minutes -= 50;
+			}
+			else {
+				this->CurAlarmTime.Minutes += 10;
+			}
+			break;
+		
+		case MINUTE_LOW:
+			if (this->CurAlarmTime.Minutes == 59) {
+				this->CurAlarmTime.Minutes = 0;
+			}
+			else {
+				this->CurAlarmTime.Minutes++;
+			}
+			break;
+
+		default: break;
+	}
 }
 
 void Alarm::TFTRecreate()
@@ -87,35 +145,64 @@ void Alarm::TFTRecreate()
 
 /**
  * @brief Display current alarm time when setting without xSemaphoreTake
+ * Display this:
+ * 12
+ * :
+ * 34
  */
 void Alarm::DisplayCurAlarmTime()
 {
 	Disbuff.setTextSize(4);
 	Disbuff.setTextColor(TFT_RED);
     Disbuff.fillRect(
-		TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2,	\
-		TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2,    	\
-		Disbuff.textWidth("99:99"), Disbuff.fontHeight(),   	\
+		TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,		\
+		TFT_VERTICAL_HEIGHT/2 - 15 - Disbuff.fontHeight()/2,	\
+		Disbuff.textWidth("99"), Disbuff.fontHeight(),   		\
 		TFT_BLACK
 	);
     
     Disbuff.setCursor(
-		TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2, 	\
+		TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99")/2, 		\
+        TFT_LANDSCAPE_HEIGHT/2 - 15 - Disbuff.fontHeight()/2
+	);
+    Disbuff.printf("%02d", this->CurAlarmTime.Hours);
+
+	Disbuff.fillRect(
+		TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,		\
+		TFT_VERTICAL_HEIGHT/2 + 15 + Disbuff.fontHeight()/2,	\
+		Disbuff.textWidth("99"), Disbuff.fontHeight(),   		\
+		TFT_BLACK
+	);
+    
+    Disbuff.setCursor(
+		TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99")/2, 		\
+        TFT_LANDSCAPE_HEIGHT/2 + 15 + Disbuff.fontHeight()/2
+	);
+    Disbuff.printf("%02d", this->CurAlarmTime.Minutes);
+
+	Disbuff.setTextColor(TFT_WHITE);
+	Disbuff.setCursor(
+		TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth(":")/2, 		\
         TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2
 	);
-    Disbuff.printf(
-		"%02d:%02d", this->CurAlarmTime.Hours, this->CurAlarmTime.Minutes
-	);
+	Disbuff.print(":");
     Disbuff.pushSprite(0, 0);
 }
 
 /**
  * @brief Display all alarm status at the top right. Filled circle is IN USED, otherwise AVAILABLE.
+ * If none of alarms in used, display 00:00. Else, display the nearest one on the screen.
  */
 void Alarm::DisplayAlarmStatus()
 {
-	Disbuff.setCursor(8, 8);
-	Disbuff.drawCircle(8+3, 8, 3, TFT_RED);
+	// TODO Show alarms' status
+	int i;
+
+	for (i = 0; i < ALARM_MAX_NUM; i++) {
+		
+	}
+	
+	
 	Disbuff.drawCircle(8+13, 8, 3, TFT_RED);
 	Disbuff.fillCircle(8+23, 8, 3, TFT_RED);
 	Disbuff.pushSprite(0, 0);

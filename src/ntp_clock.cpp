@@ -204,7 +204,9 @@ void NTPClock::TimeDisplay(int hour, int minute)
 void NTPClock::DateDisplay(uint8_t Month, uint8_t Weekday, uint8_t Date)
 {
     Disbuff.setTextSize(2);
-    Disbuff.fillRect(10, 10, Disbuff.textWidth("Jan. 12 / Tues"), \
+    Disbuff.fillRect(
+        10, 10,                                 \
+        Disbuff.textWidth("Jan. 12 / Tues"),    \
         Disbuff.fontHeight(), TFT_BLACK
     );
     Disbuff.setCursor(10, 10);

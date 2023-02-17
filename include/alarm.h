@@ -3,7 +3,11 @@
 
 #include "sys_main.h"
 
-#define MAX_ALARM_NUM	2
+#define ALARM_MAX_NUM					2
+#define ALARM_STATUS_CIRCLES_X_MARGIN	8
+#define ALARM_STATUS_CIRCLES_Y_MARGIN	8
+#define ALARM_STATUS_CIRCLES_RADIUS		3
+#define ALARM_STATUS_CIRCLES_INTERVAL	3
 
 typedef enum
 {
@@ -17,13 +21,16 @@ typedef struct
 {
 	uint8_t Hours;
     uint8_t Minutes;
+	bool inUsed;
 } AlarmTimeTypeDef;
 
 typedef struct
 {
-	AlarmTimeTypeDef *AlarmList[MAX_ALARM_NUM];
-	int WorkingAlarmNum;
+	AlarmTimeTypeDef *AlarmList;
+	int WorkingAlarmNum; // TODO How to calculate the working alarm and the total.
 } AlarmDataTypeDef;
+
+typedef AlarmTimeTypeDef *AlarmDataTypeDef;
 
 class Alarm
 {
@@ -36,6 +43,7 @@ public:
     void Leave();
 
 	void AddNewAlarm();
+	void ChangeAlarmTime();
 
 	inline void Inited() { this->isInited = true; };
 	inline bool IsOnMyPage() { return this->isOnMyPage; };
@@ -50,7 +58,7 @@ private:
 	AlarmTimeTypeDef CurAlarmTime;
 	CurPointingLocType_e CurPointingLoc;
 
-	AlarmDataTypeDef AlarmData;
+	AlarmDataTypeDef AlarmList[ALARM_MAX_NUM];
 };
 
 void AlarmInitTask(void *arg);

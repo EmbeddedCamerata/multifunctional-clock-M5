@@ -144,13 +144,13 @@ void QWeather::DisplayCurWeather()
     Disbuff.setTextSize(2);
     Disbuff.setTextColor(TFT_WHITE);
     Disbuff.fillRect(
-        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("Temp")/2,   \
+        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("Temp")/2, \
         10 - Disbuff.fontHeight()/2,                        \
-        Disbuff.textWidth("Temp"), Disbuff.fontHeight(),      \
+        Disbuff.textWidth("Temp"), Disbuff.fontHeight(),    \
         TFT_BLACK
     );
     Disbuff.setCursor(
-        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("Temp")/2,   \
+        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("Temp")/2, \
         10 - Disbuff.fontHeight()/2
     );
     Disbuff.print("Temp");
@@ -168,7 +168,7 @@ void QWeather::DisplayCurWeather()
             TFT_BLACK
         );
         Disbuff.setCursor(
-            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2, \
+            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,   \
             50 - Disbuff.fontHeight()/2
         );
         Disbuff.printf("%02d", this->CurWeatherData.temp);
@@ -190,7 +190,7 @@ void QWeather::DisplayCurWeather()
         Disbuff.fillRect(
             TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2,    \
             50 - Disbuff.fontHeight()/2,                        \
-            Disbuff.textWidth("o", 2), Disbuff.fontHeight(2),       \
+            Disbuff.textWidth("o", 2), Disbuff.fontHeight(2),   \
             TFT_BLACK
         );
         Disbuff.setCursor(
@@ -201,14 +201,14 @@ void QWeather::DisplayCurWeather()
         Disbuff.print("o");
 
         Disbuff.fillRect(
-            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2 + Disbuff.textWidth("o", 2),    \
-            50,                        \
-            Disbuff.textWidth("C", 2), Disbuff.fontHeight(2),       \
+            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2 +   \
+            Disbuff.textWidth("o", 2), 50,                      \
+            Disbuff.textWidth("C", 2), Disbuff.fontHeight(2),   \
             TFT_BLACK
         );
         Disbuff.setCursor(
-            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2 + Disbuff.textWidth("o", 2),    \
-            50
+            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2 +   \
+            Disbuff.textWidth("o", 2), 50
         );
         Disbuff.print("C");
     }
@@ -225,8 +225,14 @@ void QWeather::DisplayCurWeather()
 
     Disbuff.setTextSize(4);
     Disbuff.setTextColor(TFT_RED);
-	Disbuff.fillRect(TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2, 120, Disbuff.textWidth("99%"), Disbuff.fontHeight(), TFT_BLACK);
-    Disbuff.setCursor(TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2, 120);
+	Disbuff.fillRect(
+        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2,      \
+        120, Disbuff.textWidth("99%"), Disbuff.fontHeight(),    \
+        TFT_BLACK
+    );
+    Disbuff.setCursor(
+        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2, 120
+    );
     Disbuff.printf("%d%%", this->CurWeatherData.humidity);
     
     Disbuff.pushSprite(0, 0);
@@ -237,7 +243,7 @@ void QWeather::DisplayCurAirQuality()
 {
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
     Disbuff.fillRect(0, 0, TFT_VERTICAL_WIDTH, TFT_VERTICAL_HEIGHT, TFT_BLACK);
-
+    // TODO
     Disbuff.pushSprite(0, 0);
     xSemaphoreGive(lcd_draw_sem);
 }
@@ -341,7 +347,9 @@ bool QWeather::ParseCurWeather(String Payload)
 
 	StaticJsonDocument<256> doc;
 
-	DeserializationError error = deserializeJson(doc, Payload, DeserializationOption::Filter(filter));
+	DeserializationError error = deserializeJson(
+        doc, Payload, DeserializationOption::Filter(filter)
+    );
 
 	if (error) {
 		Serial.print("deserializeJson() failed: ");
@@ -379,7 +387,9 @@ bool QWeather::ParseCurAirQuality(String Payload)
 
 	StaticJsonDocument<256> doc;
 
-	DeserializationError error = deserializeJson(doc, Payload, DeserializationOption::Filter(filter));
+	DeserializationError error = deserializeJson(
+        doc, Payload, DeserializationOption::Filter(filter)
+    );
 
 	if (error) {
 		Serial.print("deserializeJson() failed: ");
