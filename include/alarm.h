@@ -9,6 +9,8 @@
 #define ALARM_STATUS_CIRCLES_RADIUS		3
 #define ALARM_STATUS_CIRCLES_INTERVAL	3
 
+#define ALARM_STARTS_WHEN_CREATED
+
 typedef enum
 {
 	MINUTE_HIGH = 0U,
@@ -21,16 +23,14 @@ typedef struct
 {
 	uint8_t Hours;
     uint8_t Minutes;
-	bool inUsed;
+	bool isWorking;
 } AlarmTimeTypeDef;
 
 typedef struct
 {
-	AlarmTimeTypeDef *AlarmList;
-	int WorkingAlarmNum; // TODO How to calculate the working alarm and the total.
+	AlarmTimeTypeDef *AlarmList[ALARM_MAX_NUM];
+	int UsedAlarmNum;
 } AlarmDataTypeDef;
-
-typedef AlarmTimeTypeDef *AlarmDataTypeDef;
 
 class Alarm
 {
@@ -42,7 +42,8 @@ public:
 	void OnMyPage();
     void Leave();
 
-	void AddNewAlarm();
+	void AddAlarm();
+	void RemoveAlarm();
 	void ChangeAlarmTime();
 
 	inline void Inited() { this->isInited = true; };
@@ -53,12 +54,15 @@ private:
 	void DisplayCurAlarmTime();
 	void DisplayAlarmStatus();
 
+	int GetWorkingAlarmNum();
+	int GetCreatedAlarmNum();
+
 	bool isInited;
 	bool isOnMyPage;
 	AlarmTimeTypeDef CurAlarmTime;
 	CurPointingLocType_e CurPointingLoc;
 
-	AlarmDataTypeDef AlarmList[ALARM_MAX_NUM];
+	AlarmDataTypeDef AlarmData;
 };
 
 void AlarmInitTask(void *arg);

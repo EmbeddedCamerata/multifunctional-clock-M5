@@ -14,11 +14,12 @@ void Alarm::Init(SysPageType_e Page)
         return;
     }
 
-	this->CurPointingLoc = MINUTE_HIGH;
-	this->CurAlarmTime = {.Hours = 0, .Minutes = 0, .inUsed = false};
+	this->CurPointingLoc = HOUR_HIGH;
+	this->CurAlarmTime = {.Hours = 0, .Minutes = 0}; // Don't care "isUsed"
 
+	this->AlarmData.UsedAlarmNum = 0;
 	for (int i = 0; i < ALARM_MAX_NUM; i++) {
-		this->AlarmList[i] = NULL;
+		this->AlarmData.AlarmList[i] = nullptr;
 	}
 
 	if (Page == PAGE_SET_ALARM) {
@@ -53,26 +54,39 @@ void Alarm::Leave()
     this->isOnMyPage = false;
 }
 
-void Alarm::AddNewAlarm()
+void Alarm::AddAlarm()
 {
 	AlarmTimeTypeDef *NewAlarmTime = new AlarmTimeTypeDef;
+
+	assert(this->AlarmData.UsedAlarmNum < ALARM_MAX_NUM);
 
 	if (NewAlarmTime != nullptr) {
 		NewAlarmTime->Hours = this->CurAlarmTime.Hours;
 		NewAlarmTime->Minutes = this->CurAlarmTime.Minutes;
+#ifdef ALARM_STARTS_WHEN_CREATED
+		NewAlarmTime->isWorking = true;
+#else
+		NewAlarmTime->isWorking = false;
+#endif
 
-		this->AlarmList[this->AlarmData.WorkingAlarmNum] = NewAlarmTime;
+		this->AlarmData.AlarmList[this->AlarmData.UsedAlarmNum] = NewAlarmTime;
 #ifdef DEBUG_MODE
-		Serial.printf("Alarm %d:%d\n", 											\
-			this->AlarmData.AlarmList[this->AlarmData.WorkingAlarmNum]->Hours, 	\
-			this->AlarmData.AlarmList[this->AlarmData.WorkingAlarmNum]->Minutes
+		Serial.printf(
+			"Alarm %d:%d\n", 													\
+			this->AlarmData.AlarmList[this->AlarmData.UsedAlarmNum]->Hours,		\
+			this->AlarmData.AlarmList[this->AlarmData.UsedAlarmNum]->Minutes
 		);
 #endif
 
-		this->AlarmData.WorkingAlarmNum++;
+		this->AlarmData.UsedAlarmNum++;
 	}
 
 	delete NewAlarmTime;
+}
+
+void Alarm::RemoveAlarm()
+{
+	
 }
 
 void Alarm::ChangeAlarmTime()
@@ -191,21 +205,61 @@ void Alarm::DisplayCurAlarmTime()
 
 /**
  * @brief Display all alarm status at the top right. Filled circle is IN USED, otherwise AVAILABLE.
- * If none of alarms in used, display 00:00. Else, display the nearest one on the screen.
+ * If none of alarms in used, display 00:00. Otherwise, display the nearest one on the screen.
  */
 void Alarm::DisplayAlarmStatus()
 {
 	// TODO Show alarms' status
 	int i;
 
+	/* 1. Display circles top left */
 	for (i = 0; i < ALARM_MAX_NUM; i++) {
-		
+		if (this->AlarmData.AlarmList[i] == nullptr) {
+			Disbuff.drawCircle(
+				ALARM_STATUS_CIRCLES_X_MARGIN + ALARM_STATUS_CIRCLES_INTERVAL + 10*i, \
+				ALARM_STATUS_CIRCLES_Y_MARGIN, 	\
+				ALARM_STATUS_CIRCLES_RADIUS, 	\
+				TFT_RED
+			);
+		}
+		else {
+			Disbuff.fillCircle(
+				ALARM_STATUS_CIRCLES_X_MARGIN + ALARM_STATUS_CIRCLES_INTERVAL + 10*i, \
+				ALARM_STATUS_CIRCLES_Y_MARGIN, 	\
+				ALARM_STATUS_CIRCLES_RADIUS, 	\
+				TFT_RED
+			);
+		}
 	}
 	
-	
-	Disbuff.drawCircle(8+13, 8, 3, TFT_RED);
-	Disbuff.fillCircle(8+23, 8, 3, TFT_RED);
 	Disbuff.pushSprite(0, 0);
+}
+
+int Alarm::GetWorkingAlarmNum()
+{
+	int i;
+
+	for (i = 0; i < ALARM_MAX_NUM; i++) {
+		if (this->AlarmData.AlarmList[i] != nullptr and \
+			this->AlarmData.AlarmList[i]->isWorking == true) {
+			i++;
+		}
+	}
+
+	return i;
+}
+
+int Alarm::GetCreatedAlarmNum()
+{
+	int i;
+
+	for (i = 0; i < ALARM_MAX_NUM; i++) {
+		if (this->AlarmData.AlarmList[i] != nullptr) {
+			i++;
+		}
+	}
+
+	return i;
 }
 
 void AlarmInitTask(void *arg)
