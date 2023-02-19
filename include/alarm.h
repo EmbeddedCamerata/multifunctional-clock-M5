@@ -11,6 +11,7 @@
 
 #define ALARM_STARTS_WHEN_CREATED
 
+/* Indicate which number is ready to change */
 typedef enum
 {
 	MINUTE_HIGH = 0U,
@@ -19,18 +20,25 @@ typedef enum
 	HOUR_LOW
 } CurPointingLocType_e;
 
+/* Save the alarm info */
 typedef struct
 {
 	uint8_t Hours;
     uint8_t Minutes;
 	bool isWorking;
-} AlarmTimeTypeDef;
+} AlarmInfoTypeDef;
 
 typedef struct
 {
-	AlarmTimeTypeDef *AlarmList[ALARM_MAX_NUM];
-	int UsedAlarmNum;
+	AlarmInfoTypeDef *AlarmList[ALARM_MAX_NUM];
+	int UsedAlarmNum;	// TODO
 } AlarmDataTypeDef;
+
+typedef struct
+{
+	AlarmInfoTypeDef AlarmTime;
+	int Index;
+} CurAlarmDataTypedef;
 
 class Alarm
 {
@@ -44,6 +52,7 @@ public:
 
 	void AddAlarm();
 	void RemoveAlarm();
+	void ReadAlarmData();
 	void ChangeAlarmTime();
 
 	inline void Inited() { this->isInited = true; };
@@ -51,6 +60,7 @@ public:
 
 private:
 	void TFTRecreate();
+	void SwitchCurPointingLoc();
 	void DisplayCurAlarmTime();
 	void DisplayAlarmStatus();
 
@@ -59,9 +69,9 @@ private:
 
 	bool isInited;
 	bool isOnMyPage;
-	AlarmTimeTypeDef CurAlarmTime;
 	CurPointingLocType_e CurPointingLoc;
 
+	CurAlarmDataTypedef CurAlarmData;
 	AlarmDataTypeDef AlarmData;
 };
 
