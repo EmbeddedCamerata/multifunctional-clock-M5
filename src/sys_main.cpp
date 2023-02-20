@@ -208,9 +208,8 @@ void WiFiConnectTask(void *arg)
 	EventGroupHandle_t events = ((SysTypeDef*)arg)->SysEvents;
 	unsigned long dt;
 
-	Serial.printf("Connecting to %s\n", _SSID);
-	
-	WiFi.begin(_SSID, _PASSWORD);
+	Serial.printf("Connecting to %s\n", WIFI_SSID);
+	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 	
 	dt = millis();
 	while (WiFi.status() != WL_CONNECTED) {

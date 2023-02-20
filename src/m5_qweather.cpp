@@ -9,37 +9,46 @@ extern SemaphoreHandle_t lcd_draw_sem;
 
 TaskHandle_t xhandle_cur_weather_update = NULL;
 TaskHandle_t xhandle_cur_air_quality_update = NULL;
+TaskHandle_t xhandle_qweather_regular_sync = NULL;
 
 void CurWeatherUpdateTask(void *arg);
 void CurAirQualityUpdateTask(void *arg);
+void QWeatherRegularSyncTask(void *arg);
 
-QWeather::QWeather() :  \
-    isInited(0),        \
-    isOnMyPage(0) {};
+QWeather::QWeather() : isInited(0),
+                       isOnMyPage(0){};
 
 void QWeather::Init(SysTypeDef *SysAttr)
 {
-    if (this->isInited) {
+    if (this->isInited)
+    {
         return;
     }
 
-   this-> SubPage = SUBPAGE_CURRENT_WEATHER;
+    this->SubPage = SUBPAGE_CURRENT_WEATHER;
 
     this->GetCurWeather(&(SysAttr->SysEvents));
     this->GetCurAirQuality(&(SysAttr->SysEvents));
 
-    if (SysAttr->SysPage == PAGE_WEATHER) {
+    if (SysAttr->SysPage == PAGE_WEATHER)
+    {
         this->isOnMyPage = true;
         this->TFTRecreate();
         this->DisplaySubPage();
     }
+
+#ifdef QWEATHER_RELUGAR_SYNC
+    xTaskCreate(QWeatherRegularSyncTask, "QWeatherRegularSyncTask",
+                1024 * 2, (void *)SysAttr, 6, &xhandle_qweather_regular_sync);
+#endif
 
     this->isInited = true;
 }
 
 void QWeather::ButtonsUpdate(SysTypeDef *SysAttr)
 {
-    if (M5.BtnA.wasReleased()) {
+    if (M5.BtnA.wasReleased())
+    {
         /* Short press of BtnA for switching the sub page */
         this->SubPage = (WeatherSubPageType_e)(1 - (int)this->SubPage);
 #ifdef DEBUG_MODE
@@ -47,25 +56,25 @@ void QWeather::ButtonsUpdate(SysTypeDef *SysAttr)
 #endif
         this->DisplaySubPage();
     }
-    else if (M5.BtnA.wasReleasefor(500)) {
+    else if (M5.BtnA.wasReleasefor(500))
+    {
         /* Long press of BtnA for updating current weather & air quality immediately */
-        xTaskCreate(CurWeatherUpdateTask, "CurWeatherUpdateTask", \
-            1024*4, (void*)SysAttr, 6, &xhandle_cur_weather_update);
-        
-        xTaskCreate(CurAirQualityUpdateTask, "CurAirQualityUpdateTask", \
-            1024*4, (void*)SysAttr, 6, &xhandle_cur_air_quality_update);
+        xTaskCreate(CurWeatherUpdateTask, "CurWeatherUpdateTask",
+                    1024 * 4, (void *)SysAttr, 6, &xhandle_cur_weather_update);
+
+        xTaskCreate(CurAirQualityUpdateTask, "CurAirQualityUpdateTask",
+                    1024 * 4, (void *)SysAttr, 6, &xhandle_cur_air_quality_update);
     }
-    else if (M5.BtnB.wasReleased()) {
-        
+    else if (M5.BtnB.wasReleased())
+    {
     }
 }
 
 void QWeather::OnMyPage()
 {
     this->isOnMyPage = true;
-    this->SubPage = SUBPAGE_CURRENT_WEATHER;
     this->TFTRecreate();
-    this->DisplayCurWeather();
+    this->DisplaySubPage();
 }
 
 void QWeather::Leave()
@@ -73,19 +82,22 @@ void QWeather::Leave()
     this->isOnMyPage = false;
 }
 
-bool QWeather::GetCurWeather(EventGroupHandle_t* Events_ptr)
+bool QWeather::GetCurWeather(EventGroupHandle_t *Events_ptr)
 {
     int _try_time = 0;
-    String url = "https://devapi.qweather.com/v7/weather/now?location=" + this->LocationID + \
-        "&lang=" + this->Language + "&key=" + this->ApiKey + "&gzip=n";
+    String url = "https://devapi.qweather.com/v7/weather/now?location=" + this->LocationID +
+                 "&lang=" + this->Language + "&key=" + this->ApiKey + "&gzip=n";
 
-    if (!this->ParseRequest(url, URL_CURRENT_WEATHER)) {
-        do {
+    if (!this->ParseRequest(url, URL_CURRENT_WEATHER))
+    {
+        do
+        {
             _try_time++;
 #ifdef DEBUG_MODE
             Serial.printf("Retries: %d/%d\n", _try_time, QWEATHER_RETRY_MAX_RETRY);
 #endif
-            if (_try_time == QWEATHER_RETRY_MAX_RETRY) {
+            if (_try_time == QWEATHER_RETRY_MAX_RETRY)
+            {
 #ifdef DEBUG_MODE
                 Serial.println("Get current weather failed!");
 #endif
@@ -98,19 +110,22 @@ bool QWeather::GetCurWeather(EventGroupHandle_t* Events_ptr)
     return true;
 }
 
-bool QWeather::GetCurAirQuality(EventGroupHandle_t* Events_ptr)
+bool QWeather::GetCurAirQuality(EventGroupHandle_t *Events_ptr)
 {
     int _try_time = 0;
-    String url = "https://devapi.qweather.com/v7/air/now?location=" + this->LocationID + \
-        "&lang=" + this->Language + "&key=" + this->ApiKey + "&gzip=n";
-    
-    if (!this->ParseRequest(url, URL_CURRENT_AIR_QUALITY)) {
-        do {
+    String url = "https://devapi.qweather.com/v7/air/now?location=" + this->LocationID +
+                 "&lang=" + this->Language + "&key=" + this->ApiKey + "&gzip=n";
+
+    if (!this->ParseRequest(url, URL_CURRENT_AIR_QUALITY))
+    {
+        do
+        {
             _try_time++;
 #ifdef DEBUG_MODE
             Serial.printf("Retries: %d/%d\n", _try_time, QWEATHER_RETRY_MAX_RETRY);
 #endif
-            if (_try_time == QWEATHER_RETRY_MAX_RETRY) {
+            if (_try_time == QWEATHER_RETRY_MAX_RETRY)
+            {
 #ifdef DEBUG_MODE
                 Serial.println("Get current air quality failed!");
 #endif
@@ -128,10 +143,12 @@ bool QWeather::GetCurAirQuality(EventGroupHandle_t* Events_ptr)
  */
 void QWeather::DisplaySubPage() // TODO
 {
-    if (this->SubPage == SUBPAGE_CURRENT_WEATHER) {
+    if (this->SubPage == SUBPAGE_CURRENT_WEATHER)
+    {
         this->DisplayCurWeather();
     }
-    else if (this->SubPage == SUBPAGE_CURRENT_AIR_QUALITY) {
+    else if (this->SubPage == SUBPAGE_CURRENT_AIR_QUALITY)
+    {
         this->DisplayCurAirQuality();
     }
 }
@@ -144,97 +161,88 @@ void QWeather::DisplayCurWeather()
     Disbuff.setTextSize(2);
     Disbuff.setTextColor(TFT_WHITE);
     Disbuff.fillRect(
-        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("Temp")/2, \
-        10 - Disbuff.fontHeight()/2,                        \
-        Disbuff.textWidth("Temp"), Disbuff.fontHeight(),    \
-        TFT_BLACK
-    );
+        TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("Temp") / 2,
+        10 - Disbuff.fontHeight() / 2,
+        Disbuff.textWidth("Temp"), Disbuff.fontHeight(),
+        TFT_BLACK);
     Disbuff.setCursor(
-        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("Temp")/2, \
-        10 - Disbuff.fontHeight()/2
-    );
+        TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("Temp") / 2,
+        10 - Disbuff.fontHeight() / 2);
     Disbuff.print("Temp");
-
-    //Disbuff.setTextDatum(TL_DATUM);
+    
     Disbuff.setTextSize(4);
     Disbuff.setTextColor(TFT_RED);
 
     /* Draw the temperature */
-    if (this->CurWeatherData.temp >= 10) {
+    if (this->CurWeatherData.temp >= 10)
+    {
         Disbuff.fillRect(
-            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,   \
-            50 - Disbuff.fontHeight()/2,                        \
-            Disbuff.textWidth("99"), Disbuff.fontHeight(),      \
-            TFT_BLACK
-        );
+            TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("99") / 2,
+            50 - Disbuff.fontHeight() / 2,
+            Disbuff.textWidth("99"), Disbuff.fontHeight(),
+            TFT_BLACK);
         Disbuff.setCursor(
-            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,   \
-            50 - Disbuff.fontHeight()/2
-        );
+            TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("99") / 2,
+            50 - Disbuff.fontHeight() / 2);
         Disbuff.printf("%02d", this->CurWeatherData.temp);
     }
-    else if (0 < this->CurWeatherData.temp < 10) {
+    else if (0 < this->CurWeatherData.temp < 10)
+    {
         Disbuff.fillRect(
-            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("9")/2,    \
-            50 - Disbuff.fontHeight()/2,                        \
-            Disbuff.textWidth("9"), Disbuff.fontHeight(),       \
-            TFT_BLACK
-        );
+            TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("9") / 2,
+            50 - Disbuff.fontHeight() / 2,
+            Disbuff.textWidth("9"), Disbuff.fontHeight(),
+            TFT_BLACK);
         Disbuff.setCursor(
-            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("9")/2,    \
-            50 - Disbuff.fontHeight()/2
-        );
+            TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("9") / 2,
+            50 - Disbuff.fontHeight() / 2);
         Disbuff.printf("%d", this->CurWeatherData.temp);
 
         /* Draw the "oc" text besides the number */
         Disbuff.fillRect(
-            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2,    \
-            50 - Disbuff.fontHeight()/2,                        \
-            Disbuff.textWidth("o", 2), Disbuff.fontHeight(2),   \
-            TFT_BLACK
-        );
+            TFT_VERTICAL_WIDTH / 2 + Disbuff.textWidth("9") / 2,
+            50 - Disbuff.fontHeight() / 2,
+            Disbuff.textWidth("o", 2), Disbuff.fontHeight(2),
+            TFT_BLACK);
         Disbuff.setCursor(
-            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2,    \
-            50 - Disbuff.fontHeight()/2
-        );
+            TFT_VERTICAL_WIDTH / 2 + Disbuff.textWidth("9") / 2,
+            50 - Disbuff.fontHeight() / 2);
         Disbuff.setTextSize(2);
         Disbuff.print("o");
 
         Disbuff.fillRect(
-            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2 +   \
-            Disbuff.textWidth("o", 2), 50,                      \
-            Disbuff.textWidth("C", 2), Disbuff.fontHeight(2),   \
-            TFT_BLACK
-        );
+            TFT_VERTICAL_WIDTH / 2 + Disbuff.textWidth("9") / 2 +
+                Disbuff.textWidth("o", 2),
+            50,
+            Disbuff.textWidth("C", 2), Disbuff.fontHeight(2),
+            TFT_BLACK);
         Disbuff.setCursor(
-            TFT_VERTICAL_WIDTH/2 + Disbuff.textWidth("9")/2 +   \
-            Disbuff.textWidth("o", 2), 50
-        );
+            TFT_VERTICAL_WIDTH / 2 + Disbuff.textWidth("9") / 2 +
+                Disbuff.textWidth("o", 2),
+            50);
         Disbuff.print("C");
     }
-    else {
+    else
+    {
         // TODO -9/-10
         Disbuff.fillRect(
-            TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("-9")/2, 40,    \
-            Disbuff.textWidth("-9"), Disbuff.fontHeight(),           \
-            TFT_BLACK
-        );
-        Disbuff.setCursor(TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("-9")/2, 40);
+            TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("-9") / 2, 40,
+            Disbuff.textWidth("-9"), Disbuff.fontHeight(),
+            TFT_BLACK);
+        Disbuff.setCursor(TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("-9") / 2, 40);
         Disbuff.printf("-%d", this->CurWeatherData.temp);
     }
 
     Disbuff.setTextSize(4);
     Disbuff.setTextColor(TFT_RED);
-	Disbuff.fillRect(
-        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2,      \
-        120, Disbuff.textWidth("99%"), Disbuff.fontHeight(),    \
-        TFT_BLACK
-    );
+    Disbuff.fillRect(
+        TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("99%") / 2,
+        120, Disbuff.textWidth("99%"), Disbuff.fontHeight(),
+        TFT_BLACK);
     Disbuff.setCursor(
-        TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99%")/2, 120
-    );
+        TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("99%") / 2, 120);
     Disbuff.printf("%d%%", this->CurWeatherData.humidity);
-    
+
     Disbuff.pushSprite(0, 0);
     xSemaphoreGive(lcd_draw_sem);
 }
@@ -253,9 +261,10 @@ void QWeather::TFTRecreate()
     M5.Lcd.setRotation(PAGE_WEATHER);
 
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-    if (Disbuff.width() != TFT_VERTICAL_WIDTH) {
+    if (Disbuff.width() != TFT_VERTICAL_WIDTH)
+    {
         Disbuff.deleteSprite();
-		Disbuff.createSprite(TFT_VERTICAL_WIDTH, TFT_VERTICAL_HEIGHT);
+        Disbuff.createSprite(TFT_VERTICAL_WIDTH, TFT_VERTICAL_HEIGHT);
     }
 
     Disbuff.fillRect(0, 0, TFT_VERTICAL_WIDTH, TFT_VERTICAL_HEIGHT, TFT_BLACK);
@@ -263,24 +272,26 @@ void QWeather::TFTRecreate()
     xSemaphoreGive(lcd_draw_sem);
 }
 
-void QWeather::CurWeatherUpdate(EventGroupHandle_t* Events_ptr)
+void QWeather::CurWeatherUpdate(EventGroupHandle_t *Events_ptr)
 {
     int _try_time = 0;
 
     this->GetCurWeather(Events_ptr);
-    
-    if (this->isOnMyPage and this->SubPage == SUBPAGE_CURRENT_WEATHER) {
+
+    if (this->isOnMyPage and this->SubPage == SUBPAGE_CURRENT_WEATHER)
+    {
         this->DisplayCurWeather();
     }
 }
 
-void QWeather::CurAirQualityUpdate(EventGroupHandle_t* Events_ptr)
+void QWeather::CurAirQualityUpdate(EventGroupHandle_t *Events_ptr)
 {
     int _try_time = 0;
 
     this->GetCurAirQuality(Events_ptr);
 
-    if (this->isOnMyPage and this->SubPage == SUBPAGE_CURRENT_AIR_QUALITY) {
+    if (this->isOnMyPage and this->SubPage == SUBPAGE_CURRENT_AIR_QUALITY)
+    {
         this->DisplayCurAirQuality();
     }
 }
@@ -293,17 +304,21 @@ bool QWeather::ParseRequest(String Url, QWeatherUrlType_e UrlType)
     uint32_t dt;
     bool ret;
 
-    if (!http.begin(Url)) {
+    if (!http.begin(Url))
+    {
         Serial.println("Connected to Qweather failed!");
-    	return false;
+        return false;
     }
 
     dt = millis();
     httpCode = http.sendRequest("GET");
 
-    while (http.connected()) {
-        if (httpCode > 0) {
-            if (httpCode == HTTP_CODE_OK) {
+    while (http.connected())
+    {
+        if (httpCode > 0)
+        {
+            if (httpCode == HTTP_CODE_OK)
+            {
                 payload = http.getString();
 #ifdef DEBUG_MODE
                 Serial.println(payload);
@@ -312,128 +327,133 @@ bool QWeather::ParseRequest(String Url, QWeatherUrlType_e UrlType)
                 break;
             }
         }
-        else {
+        else
+        {
             Serial.println("HTTP get failed!");
         }
-        
-        if ((millis() - dt) > QWEATHER_HTTP_TIMEOUT * 1000UL) {
+
+        if ((millis() - dt) > QWEATHER_HTTP_TIMEOUT * 1000UL)
+        {
             Serial.println("HTTP header timeout!");
             http.end();
             return false;
         }
     }
 
-    if (UrlType == URL_CURRENT_WEATHER) {
+    if (UrlType == URL_CURRENT_WEATHER)
+    {
         ret = this->ParseCurWeather(payload);
     }
-    else if (UrlType == URL_CURRENT_AIR_QUALITY) {
+    else if (UrlType == URL_CURRENT_AIR_QUALITY)
+    {
         ret = this->ParseCurAirQuality(payload);
     }
-    
+
     return ret;
 }
 
 bool QWeather::ParseCurWeather(String Payload)
 {
-	StaticJsonDocument<128> filter;
-	filter["code"] = true;
-	filter["updateTime"] = true;
+    StaticJsonDocument<128> filter;
+    filter["code"] = true;
+    filter["updateTime"] = true;
 
-	JsonObject filter_now = filter.createNestedObject("now");
-	filter_now["temp"] = true;
-	filter_now["icon"] = true;
-	filter_now["text"] = true;
-	filter_now["humidity"] = true;
+    JsonObject filter_now = filter.createNestedObject("now");
+    filter_now["temp"] = true;
+    filter_now["icon"] = true;
+    filter_now["text"] = true;
+    filter_now["humidity"] = true;
 
-	StaticJsonDocument<256> doc;
+    StaticJsonDocument<256> doc;
 
-	DeserializationError error = deserializeJson(
-        doc, Payload, DeserializationOption::Filter(filter)
-    );
+    DeserializationError error = deserializeJson(
+        doc, Payload, DeserializationOption::Filter(filter));
 
-	if (error) {
-		Serial.print("deserializeJson() failed: ");
-		Serial.println(error.c_str());
-		return false;
-	}
+    if (error)
+    {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(error.c_str());
+        return false;
+    }
 
-	if (doc["code"].as<int>() != 200) {
-		Serial.println("Current weather request failed!");
-		return false;
-	}
+    if (doc["code"].as<int>() != 200)
+    {
+        Serial.println("Current weather request failed!");
+        return false;
+    }
 
-	JsonObject now = doc["now"];
+    JsonObject now = doc["now"];
 
-	this->CurWeatherData.updateTime = doc["updateTime"].as<String>();
-	this->CurWeatherData.temp = now["temp"].as<int>();
-	this->CurWeatherData.icon = now["icon"].as<int>();
-	this->CurWeatherData.text = now["text"].as<String>();
-	this->CurWeatherData.humidity = now["humidity"].as<int>();
+    this->CurWeatherData.updateTime = doc["updateTime"].as<String>();
+    this->CurWeatherData.temp = now["temp"].as<int>();
+    this->CurWeatherData.icon = now["icon"].as<int>();
+    this->CurWeatherData.text = now["text"].as<String>();
+    this->CurWeatherData.humidity = now["humidity"].as<int>();
 
-	return true;
+    return true;
 }
 
 bool QWeather::ParseCurAirQuality(String Payload)
 {
     StaticJsonDocument<128> filter;
-	filter["code"] = true;
-	filter["updateTime"] = true;
+    filter["code"] = true;
+    filter["updateTime"] = true;
 
-	JsonObject filter_now = filter.createNestedObject("now");
-	filter_now["aqi"] = true;
-	filter_now["level"] = true;
-	filter_now["category"] = true;
-	filter_now["primary"] = true;
+    JsonObject filter_now = filter.createNestedObject("now");
+    filter_now["aqi"] = true;
+    filter_now["level"] = true;
+    filter_now["category"] = true;
+    filter_now["primary"] = true;
 
-	StaticJsonDocument<256> doc;
+    StaticJsonDocument<256> doc;
 
-	DeserializationError error = deserializeJson(
-        doc, Payload, DeserializationOption::Filter(filter)
-    );
+    DeserializationError error = deserializeJson(
+        doc, Payload, DeserializationOption::Filter(filter));
 
-	if (error) {
-		Serial.print("deserializeJson() failed: ");
-		Serial.println(error.c_str());
-		return false;
-	}
+    if (error)
+    {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(error.c_str());
+        return false;
+    }
 
-	if (doc["code"].as<int>() != 200) {
-		Serial.println("Current air quality request failed!");
-		return false;
-	}
+    if (doc["code"].as<int>() != 200)
+    {
+        Serial.println("Current air quality request failed!");
+        return false;
+    }
 
-	JsonObject now = doc["now"];
+    JsonObject now = doc["now"];
 
-	this->CurAirQualityData.updateTime = doc["updateTime"].as<String>();
-	this->CurAirQualityData.aqi = now["aqi"].as<int>();
-	this->CurAirQualityData.level = now["level"].as<int>();
-	this->CurAirQualityData.category = now["category"].as<String>();
+    this->CurAirQualityData.updateTime = doc["updateTime"].as<String>();
+    this->CurAirQualityData.aqi = now["aqi"].as<int>();
+    this->CurAirQualityData.level = now["level"].as<int>();
+    this->CurAirQualityData.category = now["category"].as<String>();
     this->CurAirQualityData.primary = now["primary"].as<String>();
     this->CurAirQualityData.pm10 = now["pm10"].as<int>();
     this->CurAirQualityData.pm2p5 = now["pm2p5"].as<int>();
 
-	return true;
+    return true;
 }
 
 void QWeatherInitTask(void *arg)
 {
-    SysTypeDef *SysAttr = (SysTypeDef*)arg;
+    SysTypeDef *SysAttr = (SysTypeDef *)arg;
     EventBits_t bits;
-    
+
     bits = xEventGroupWaitBits(
         SysAttr->SysEvents,
         EVENT_WIFI_CONNECTED,
         pdFALSE,
         pdTRUE,
-        (WIFI_CONNECTION_TIMEOUT * 1000UL) / portTICK_RATE_MS
-    );
-    
-    if (bits & EVENT_WIFI_CONNECTED) 
+        (WIFI_CONNECTION_TIMEOUT * 1000UL) / portTICK_RATE_MS);
+
+    if (bits & EVENT_WIFI_CONNECTED)
     {
         User_QWeather.Init(SysAttr);
-    } 
-    else {
-        
+    }
+    else
+    {
     }
 
     vTaskDelete(NULL);
@@ -441,14 +461,31 @@ void QWeatherInitTask(void *arg)
 
 void CurWeatherUpdateTask(void *arg)
 {
-    User_QWeather.CurWeatherUpdate(&(((SysTypeDef*)arg)->SysEvents));
+    User_QWeather.CurWeatherUpdate(&(((SysTypeDef *)arg)->SysEvents));
     vTaskDelete(NULL);
 }
 
 void CurAirQualityUpdateTask(void *arg)
 {
-    User_QWeather.CurAirQualityUpdate(&(((SysTypeDef*)arg)->SysEvents));
+    User_QWeather.CurAirQualityUpdate(&(((SysTypeDef *)arg)->SysEvents));
     vTaskDelete(NULL);
+}
+
+void QWeatherRegularSyncTask(void *arg)
+{
+    SysTypeDef *SysAttr = (SysTypeDef *)arg;
+
+    while (1)
+    {
+        vTaskDelay(QWEATHER_SYNC_INTERVAL * 60 * 1000 / portTICK_RATE_MS);
+        User_QWeather.GetCurAirQuality(&SysAttr->SysEvents);
+        User_QWeather.GetCurWeather(&SysAttr->SysEvents);
+
+        if (User_QWeather.IsOnMyPage())
+        {
+            User_QWeather.DisplaySubPage();
+        }
+    }
 }
 
 QWeather User_QWeather;

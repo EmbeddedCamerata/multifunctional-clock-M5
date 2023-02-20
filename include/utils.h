@@ -30,10 +30,10 @@
 
 /* Definitions of system */
 #define SYSTEM_INITIAL_PAGE_SELF_ADAPTION
-#define SYSTEM_DEFAULT_PAGE			PAGE_TIMER
+#define SYSTEM_DEFAULT_PAGE			PAGE_NTPCLOCK
 #define WIFI_SMARTCONFIG_ENABLE				/* Enable WIFI smart config via ESPTouch app before using ssid and password */
-#define _SSID 						"cfpzr"
-#define _PASSWORD 					"20000804"
+#define WIFI_SSID 					"E2524 Pro Max"
+#define WIFI_PASSWORD 				"25242524"
 
 #define TFT_LANDSCAPE_WIDTH     	TFT_HEIGHT
 #define TFT_LANDSCAPE_HEIGHT    	TFT_WIDTH
@@ -44,6 +44,11 @@
 #define NTP_REGULAR_SYNC                	/* NTP clock synchronization regularly */
 #ifdef NTP_REGULAR_SYNC
 #define NTP_CALIBRATION_INTERVAL 	(60)	/* Unit: minute */
+#endif
+
+#define QWEATHER_RELUGAR_SYNC				/* QWeather synchronization regularly */
+#ifdef QWEATHER_RELUGAR_SYNC
+#define QWEATHER_SYNC_INTERVAL		(120)	/* Unit: minute */
 #endif
 
 /* Difinitions of countdown */

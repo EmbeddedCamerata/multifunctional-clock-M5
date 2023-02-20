@@ -57,6 +57,8 @@ public:
 	void CurWeatherUpdate(EventGroupHandle_t* Events_ptr);
 	void CurAirQualityUpdate(EventGroupHandle_t* Events_ptr);
 
+	void DisplaySubPage();
+
 	inline void Inited() { this->isInited = true; };
 	inline bool IsOnMyPage() { return this->isOnMyPage; };
 	
@@ -73,7 +75,6 @@ private:
 
 private:
 	void TFTRecreate();
-	void DisplaySubPage();
 	void DisplayCurWeather();
 	void DisplayCurAirQuality();
 
