@@ -3,13 +3,16 @@
 
 #include "sys_main.h"
 
-#define ALARM_MAX_NUM					2
+#define ALARM_MAX_NUM					3
 #define ALARM_STATUS_CIRCLES_X_MARGIN	8
 #define ALARM_STATUS_CIRCLES_Y_MARGIN	8
 #define ALARM_STATUS_CIRCLES_RADIUS		3
 #define ALARM_STATUS_CIRCLES_INTERVAL	3
 
 #define ALARM_STARTS_WHEN_CREATED
+
+#define ALARM_TIME_HOUR_Y_OFFSET		(-15)
+#define ALARM_TIME_MINUTE_Y_OFFSET		(-ALARM_TIME_HOUR_Y_OFFSET)
 
 /* Indicate which number is ready to change */
 typedef enum
@@ -54,13 +57,15 @@ public:
 	void RemoveAlarm();
 	void ReadAlarmData();
 	void ChangeAlarmTime();
+	void NextCurPointingLoc();
+	void NextAlarm();
 
 	inline void Inited() { this->isInited = true; };
 	inline bool IsOnMyPage() { return this->isOnMyPage; };
 
 private:
 	void TFTRecreate();
-	void SwitchCurPointingLoc();
+	
 	void DisplayCurAlarmTime();
 	void DisplayAlarmStatus();
 
