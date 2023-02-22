@@ -11,16 +11,16 @@
 
 #define ALARM_STARTS_WHEN_CREATED
 
-#define ALARM_TIME_HOUR_Y_OFFSET		(-15)
+#define ALARM_TIME_HOUR_Y_OFFSET		(-(TFT_VERTICAL_HEIGHT/6))
 #define ALARM_TIME_MINUTE_Y_OFFSET		(-ALARM_TIME_HOUR_Y_OFFSET)
 
 /* Indicate which number is ready to change */
 typedef enum
 {
-	MINUTE_HIGH = 0U,
+	HOUR_HIGH = 0U,
+	HOUR_LOW,
+	MINUTE_HIGH,
 	MINUTE_LOW,
-	HOUR_HIGH,
-	HOUR_LOW
 } CurPointingLocType_e;
 
 /* Save the alarm info */
@@ -74,6 +74,7 @@ private:
 
 	bool isInited;
 	bool isOnMyPage;
+	bool CurAlarmReload;
 	CurPointingLocType_e CurPointingLoc;
 
 	CurAlarmDataTypedef CurAlarmData;

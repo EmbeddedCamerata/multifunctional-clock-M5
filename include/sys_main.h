@@ -10,7 +10,7 @@ typedef enum SysPage
     /* Left landscape, Rotation(1) */
     PAGE_NTPCLOCK,      /* C */
     /* Vertical reversed, Rotation(2) */
-    PAGE_SET_ALARM,     /* A */
+    PAGE_SET_ALARM,     /* X from left to right; Y from top to bottom. */
     /* Right landscape, Rotation(3) */
     PAGE_TIMER,         /* T */
     PAGE_UNKNOWN

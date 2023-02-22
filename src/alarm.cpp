@@ -41,6 +41,7 @@ void Alarm::ButtonsUpdate(SysTypeDef *SysAttr)
 	*/
 	if (M5.BtnA.wasReleased()) {
 		this->ChangeAlarmTime();
+		this->DisplayCurAlarmTime();
 	}
 	else if (M5.BtnA.wasReleasefor(500)) {
 		this->NextCurPointingLoc();
@@ -50,6 +51,7 @@ void Alarm::ButtonsUpdate(SysTypeDef *SysAttr)
 	}
 	else if (M5.BtnB.wasReleasefor(500)) {
 		this->NextAlarm();
+		this->DisplayCurAlarmTime();
 	}
 }
 
@@ -122,6 +124,7 @@ void Alarm::ReadAlarmData()
 
 void Alarm::ChangeAlarmTime()
 {
+	// TODO Improve the method
 	switch (this->CurPointingLoc) {
 		case HOUR_HIGH:
 			if (this->CurAlarmData.AlarmTime.Hours >= 20) {
@@ -175,15 +178,20 @@ void Alarm::ChangeAlarmTime()
 
 void Alarm::NextCurPointingLoc()
 {
-	this->CurPointingLoc = (this->CurPointingLoc == HOUR_LOW) ? \
-		MINUTE_HIGH : (CurPointingLocType_e)(this->CurPointingLoc + 1);
+	this->CurPointingLoc = (this->CurPointingLoc == MINUTE_LOW) ? \
+		HOUR_HIGH : (CurPointingLocType_e)(this->CurPointingLoc + 1);
+#ifdef DEBUG_MODE
+	Serial.printf("At #%d\n", this->CurPointingLoc);
+#endif
 }
 
 void Alarm::NextAlarm()
 {
 	this->CurAlarmData.Index = 
 		(this->CurAlarmData.Index == ALARM_MAX_NUM) ? 0 : this->CurAlarmData.Index + 1;
-	
+#ifdef DEBUG_MODE
+	Serial.printf("Alarm #%d\n", this->CurAlarmData.Index);
+#endif
 	//TODO Refresh current alarm time display. Consider hook.
 }
 
@@ -212,7 +220,7 @@ void Alarm::TFTRecreate()
 void Alarm::DisplayCurAlarmTime()
 {
 	Disbuff.setTextSize(4);
-	Disbuff.setTextColor(TFT_RED);
+	Disbuff.setTextColor(TFT_BLUE);
     Disbuff.fillRect(
 		TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,							\
 		TFT_VERTICAL_HEIGHT/2 + ALARM_TIME_HOUR_Y_OFFSET - Disbuff.fontHeight()/2,	\
@@ -226,16 +234,17 @@ void Alarm::DisplayCurAlarmTime()
 	);
     Disbuff.printf("%02d", this->CurAlarmData.AlarmTime.Hours);
 
+	Disbuff.setTextColor(TFT_RED);
 	Disbuff.fillRect(
 		TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,								\
-		TFT_VERTICAL_HEIGHT/2 + ALARM_TIME_MINUTE_Y_OFFSET + Disbuff.fontHeight()/2,	\
+		TFT_VERTICAL_HEIGHT/2 + ALARM_TIME_MINUTE_Y_OFFSET - Disbuff.fontHeight()/2,	\
 		Disbuff.textWidth("99"), Disbuff.fontHeight(),   								\
 		TFT_BLACK
 	);
     
     Disbuff.setCursor(
 		TFT_VERTICAL_WIDTH/2 - Disbuff.textWidth("99")/2,	\
-        TFT_VERTICAL_HEIGHT/2 + ALARM_TIME_MINUTE_Y_OFFSET + Disbuff.fontHeight()/2
+        TFT_VERTICAL_HEIGHT/2 + ALARM_TIME_MINUTE_Y_OFFSET - Disbuff.fontHeight()/2
 	);
     Disbuff.printf("%02d", this->CurAlarmData.AlarmTime.Minutes);
 
