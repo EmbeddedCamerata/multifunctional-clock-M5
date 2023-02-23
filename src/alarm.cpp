@@ -20,9 +20,8 @@ void Alarm::Init(SysPageType_e Page)
 	};
 	this->CurAlarmData.Index = 0;
 
-	this->AlarmData.UsedAlarmNum = 0;
 	for (int i = 0; i < ALARM_MAX_NUM; i++) {
-		this->AlarmData.AlarmList[i] = nullptr;
+		this->AlarmList[i] = nullptr;
 	}
 
 	if (Page == PAGE_SET_ALARM) {
@@ -32,12 +31,12 @@ void Alarm::Init(SysPageType_e Page)
 
 void Alarm::ButtonsUpdate(SysTypeDef *SysAttr)
 {
-	// TODO
 	/*
-		Long press for BtnA to switch the CurPointingLoc
 		Short press for BtnA to increse the value of AlarmTime of CurPointingLoc
-		Long press for BtnB to check the next alarm time and can change it(optional)
-		Short press for BtnB...
+		Long press for BtnA to switch the CurPointingLoc
+		Short press for BtnB to check the next alarm time and can change it
+		Long press for BtnB to start/suspend the selected alarm
+		The number is blink when the selected alarm IS NOT working.
 	*/
 	if (M5.BtnA.wasReleased()) {
 		this->ChangeAlarmTime();
@@ -47,11 +46,11 @@ void Alarm::ButtonsUpdate(SysTypeDef *SysAttr)
 		this->NextCurPointingLoc();
 	}
 	else if (M5.BtnB.wasReleased()) {
-
-	}
-	else if (M5.BtnB.wasReleasefor(500)) {
 		this->NextAlarm();
 		this->DisplayCurAlarmTime();
+	}
+	else if (M5.BtnB.wasReleasefor(500)) {
+		
 	}
 }
 
@@ -75,8 +74,6 @@ void Alarm::AddAlarm()
 {
 	AlarmInfoTypeDef *NewAlarmTime = new AlarmInfoTypeDef;
 
-	assert(this->AlarmData.UsedAlarmNum < ALARM_MAX_NUM);
-
 	if (NewAlarmTime != nullptr) {
 		NewAlarmTime->Hours = this->CurAlarmData.AlarmTime.Hours;
 		NewAlarmTime->Minutes = this->CurAlarmData.AlarmTime.Minutes;
@@ -86,16 +83,14 @@ void Alarm::AddAlarm()
 		NewAlarmTime->isWorking = false;
 #endif
 
-		this->AlarmData.AlarmList[this->CurAlarmData.Index] = NewAlarmTime;
+		this->AlarmList[this->CurAlarmData.Index] = NewAlarmTime;
 #ifdef DEBUG_MODE
 		Serial.printf(
 			"Alarm %d:%d\n",											\
-			this->AlarmData.AlarmList[this->CurAlarmData.Index]->Hours,	\
-			this->AlarmData.AlarmList[this->CurAlarmData.Index]->Minutes
+			this->AlarmList[this->CurAlarmData.Index]->Hours,	\
+			this->AlarmList[this->CurAlarmData.Index]->Minutes
 		);
 #endif
-
-		this->AlarmData.UsedAlarmNum++;
 	}
 
 	delete NewAlarmTime;
@@ -103,18 +98,18 @@ void Alarm::AddAlarm()
 
 void Alarm::RemoveAlarm()
 {
-	if (this->AlarmData.AlarmList[this->CurAlarmData.Index] == nullptr) {
+	if (this->AlarmList[this->CurAlarmData.Index] == nullptr) {
 		return;
 	}
 }
 
 void Alarm::ReadAlarmData()
 {
-	if (this->AlarmData.AlarmList[this->CurAlarmData.Index] != nullptr) {
+	if (this->AlarmList[this->CurAlarmData.Index] != nullptr) {
 		this->CurAlarmData.AlarmTime.Hours = \
-			this->AlarmData.AlarmList[this->CurAlarmData.Index]->Hours;
+			this->AlarmList[this->CurAlarmData.Index]->Hours;
 		this->CurAlarmData.AlarmTime.Minutes = \
-			this->AlarmData.AlarmList[this->CurAlarmData.Index]->Minutes;
+			this->AlarmList[this->CurAlarmData.Index]->Minutes;
 	}
 	else {
 		this->CurAlarmData.AlarmTime.Hours = this->CurAlarmData.AlarmTime.Minutes = 0;
@@ -133,7 +128,7 @@ void Alarm::ChangeAlarmTime()
 			}
 			else if (this->CurAlarmData.AlarmTime.Hours > 13) {
 				/* >13 */
-				this->CurAlarmData.AlarmTime.Hours -= 10;
+				this->CurAlarmData.AlarmTime.Hours = 23;
 			}
 			else {
 				/* <13, add 10 */
@@ -144,10 +139,6 @@ void Alarm::ChangeAlarmTime()
 		case HOUR_LOW:
 			if (this->CurAlarmData.AlarmTime.Hours == 23) {
 				this->CurAlarmData.AlarmTime.Hours = 0;
-			}
-			else if (this->CurAlarmData.AlarmTime.Hours % 10 == 9) {
-				/* 09 or 19, subtract 9 */
-				this->CurAlarmData.AlarmTime.Hours -= 9;
 			}
 			else {
 				this->CurAlarmData.AlarmTime.Hours++;
@@ -268,7 +259,7 @@ void Alarm::DisplayAlarmStatus()
 
 	/* 1. Display circles top left */
 	for (i = 0; i < ALARM_MAX_NUM; i++) {
-		if (this->AlarmData.AlarmList[i] == nullptr) {
+		if (this->AlarmList[i] == nullptr) {
 			Disbuff.drawCircle(
 				ALARM_STATUS_CIRCLES_X_MARGIN + ALARM_STATUS_CIRCLES_INTERVAL + 10*i, \
 				ALARM_STATUS_CIRCLES_Y_MARGIN, 	\
@@ -294,21 +285,7 @@ int Alarm::GetWorkingAlarmNum()
 	int i;
 
 	for (i = 0; i < ALARM_MAX_NUM; i++) {
-		if (this->AlarmData.AlarmList[i] != nullptr and \
-			this->AlarmData.AlarmList[i]->isWorking == true) {
-			i++;
-		}
-	}
-
-	return i;
-}
-
-int Alarm::GetCreatedAlarmNum()
-{
-	int i;
-
-	for (i = 0; i < ALARM_MAX_NUM; i++) {
-		if (this->AlarmData.AlarmList[i] != nullptr) {
+		if (this->AlarmList[i]->isWorking == true) {
 			i++;
 		}
 	}

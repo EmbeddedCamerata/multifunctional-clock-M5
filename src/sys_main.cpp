@@ -218,13 +218,15 @@ void WiFiConnectTask(void *arg)
 
 		if (millis() - dt > WIFI_CONNECTION_TIMEOUT * 1000UL) {
 			Serial.println("\nWiFi connected failed! Please check ssid and password!");
-			vTaskDelete(NULL);
+			goto end;
 		}
     }
     
 	Serial.println("\nConnected!");
 
 	xEventGroupSetBits(events, EVENT_WIFI_CONNECTED);
+
+end:
 	vTaskDelete(NULL);
 }
 
@@ -263,19 +265,19 @@ void PowerDisplay()
 
 SysPageType_e IMUJudge(float accX, float accY, float accZ)
 {
-    if (1 - accX < 0.1) {
+    if (1 - accX < IMU_JUDGE_THRESHOLD) {
         /* accX approx 1 */
         return PAGE_NTPCLOCK;
     }
-    else if (1 + accX < 0.1) {
+    else if (1 + accX < IMU_JUDGE_THRESHOLD) {
         /* accX approx -1 */
         return PAGE_TIMER;
     }
-    else if (1 - accY < 0.1) {
+    else if (1 - accY < IMU_JUDGE_THRESHOLD) {
         /* accY approx 1 */
         return PAGE_WEATHER;
     }
-    else if (1 + accY < 0.1) {
+    else if (1 + accY < IMU_JUDGE_THRESHOLD) {
         /* accY approx -1 */
         return PAGE_SET_ALARM;
     }

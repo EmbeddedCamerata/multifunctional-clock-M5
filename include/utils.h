@@ -31,6 +31,7 @@
 /* Definitions of system */
 #define SYSTEM_INITIAL_PAGE_SELF_ADAPTION
 #define SYSTEM_DEFAULT_PAGE			PAGE_NTPCLOCK
+#define IMU_JUDGE_THRESHOLD			(0.1)
 #define WIFI_SMARTCONFIG_ENABLE				/* Enable WIFI smart config via ESPTouch app before using ssid and password */
 #define WIFI_SSID 					"E2524 Pro Max"
 #define WIFI_PASSWORD 				"25242524"

@@ -33,12 +33,6 @@ typedef struct
 
 typedef struct
 {
-	AlarmInfoTypeDef *AlarmList[ALARM_MAX_NUM];
-	int UsedAlarmNum;	// TODO
-} AlarmDataTypeDef;
-
-typedef struct
-{
 	AlarmInfoTypeDef AlarmTime;
 	int Index;
 } CurAlarmDataTypedef;
@@ -70,7 +64,6 @@ private:
 	void DisplayAlarmStatus();
 
 	int GetWorkingAlarmNum();
-	int GetCreatedAlarmNum();
 
 	bool isInited;
 	bool isOnMyPage;
@@ -78,7 +71,7 @@ private:
 	CurPointingLocType_e CurPointingLoc;
 
 	CurAlarmDataTypedef CurAlarmData;
-	AlarmDataTypeDef AlarmData;
+	AlarmInfoTypeDef *AlarmList[ALARM_MAX_NUM];
 };
 
 void AlarmInitTask(void *arg);
