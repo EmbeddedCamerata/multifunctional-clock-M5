@@ -13,7 +13,7 @@
 #define DEBUG_MODE
 #ifdef DEBUG_MODE
 #define POWER_DISPLAY
-#endif
+#endif /* DEBUG_MODE */
 
 /* Definitions of error handling */
 #define MAX_RETRY 					(3)
@@ -23,7 +23,7 @@
 #else
 #define NTP_UPDATE_MAX_RETRY  		(3)
 #define QWEATHER_RETRY_MAX_RETRY    (3)
-#endif
+#endif /* MAX_RETRY */
 
 #define WIFI_CONNECTION_TIMEOUT		(10)	/* Unit: second */
 #define HTTP_CONNECTION_TIMEOUT		(10)
@@ -45,12 +45,12 @@
 #define NTP_REGULAR_SYNC                	/* NTP clock synchronization regularly */
 #ifdef NTP_REGULAR_SYNC
 #define NTP_CALIBRATION_INTERVAL 	(60)	/* Unit: minute */
-#endif
+#endif /* NTP_REGULAR_SYNC */
 
 #define QWEATHER_RELUGAR_SYNC				/* QWeather synchronization regularly */
 #ifdef QWEATHER_RELUGAR_SYNC
 #define QWEATHER_SYNC_INTERVAL		(120)	/* Unit: minute */
-#endif
+#endif /* QWEATHER_RELUGAR_SYNC */
 
 /* Difinitions of countdown */
 #define RESET_TO_THE_BEGINNING				/* When countdown completed, reset the countdown to the last time */

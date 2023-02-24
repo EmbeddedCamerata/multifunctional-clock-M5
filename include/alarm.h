@@ -23,12 +23,25 @@ typedef enum
 	MINUTE_LOW,
 } CurPointingLocType_e;
 
+typedef enum
+{
+	ALARM_NOT_CREATED = 0U,
+	ALARM_WORKING,
+	ALARM_SUSPENDED
+} AlarmStatusType_e;
+
+typedef enum
+{
+	ALARM_MINUTE_UPDATE = 0U,
+	ALARM_HOUR_UPDATE
+} AlarmModeType_e;
+
 /* Save the alarm info */
 typedef struct
 {
 	uint8_t Hours;
     uint8_t Minutes;
-	bool isWorking;
+	AlarmStatusType_e Status;
 } AlarmInfoTypeDef;
 
 typedef struct

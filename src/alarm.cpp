@@ -3,6 +3,9 @@
 
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t lcd_draw_sem;
+TaskHandle_t xhandle_alarm_update_tasks[ALARM_MAX_NUM] = {[0 ... ALARM_MAX_NUM-1] = NULL};
+
+void AlarmUpdateTask(void *arg);
 
 Alarm::Alarm() :		\
 	isInited(0),		\
@@ -16,7 +19,7 @@ void Alarm::Init(SysPageType_e Page)
 
 	this->CurPointingLoc = HOUR_HIGH;
 	this->CurAlarmData.AlarmTime = {
-		.Hours = 0, .Minutes = 0 	// Don't care "isUsed"
+		.Hours = 0, .Minutes = 0
 	};
 	this->CurAlarmData.Index = 0;
 
@@ -50,7 +53,14 @@ void Alarm::ButtonsUpdate(SysTypeDef *SysAttr)
 		this->DisplayCurAlarmTime();
 	}
 	else if (M5.BtnB.wasReleasefor(500)) {
-		
+		if (xhandle_alarm_update_tasks[this->CurAlarmData.Index] == NULL) {
+			xTaskCreate(AlarmUpdateTask, "AlarmUpdateTask", 1024, \
+				(void*)0, 7, &xhandle_alarm_update_tasks[this->CurAlarmData.Index]
+			);
+		}
+		else {
+
+		}
 	}
 }
 
@@ -78,15 +88,15 @@ void Alarm::AddAlarm()
 		NewAlarmTime->Hours = this->CurAlarmData.AlarmTime.Hours;
 		NewAlarmTime->Minutes = this->CurAlarmData.AlarmTime.Minutes;
 #ifdef ALARM_STARTS_WHEN_CREATED
-		NewAlarmTime->isWorking = true;
+		NewAlarmTime->Status = ALARM_WORKING;
 #else
-		NewAlarmTime->isWorking = false;
+		NewAlarmTime->Status = ALARM_SUSPENDED;
 #endif
 
 		this->AlarmList[this->CurAlarmData.Index] = NewAlarmTime;
 #ifdef DEBUG_MODE
 		Serial.printf(
-			"Alarm %d:%d\n",											\
+			"Alarm %d:%d\n",									\
 			this->AlarmList[this->CurAlarmData.Index]->Hours,	\
 			this->AlarmList[this->CurAlarmData.Index]->Minutes
 		);
@@ -285,7 +295,7 @@ int Alarm::GetWorkingAlarmNum()
 	int i;
 
 	for (i = 0; i < ALARM_MAX_NUM; i++) {
-		if (this->AlarmList[i]->isWorking == true) {
+		if (this->AlarmList[i]->Status == ALARM_WORKING) {
 			i++;
 		}
 	}
@@ -299,6 +309,11 @@ void AlarmInitTask(void *arg)
     
     User_Alarm.Init(page);
     vTaskDelete(NULL);
+}
+
+void AlarmUpdateTask(void *arg)
+{
+
 }
 
 Alarm User_Alarm;
