@@ -3,7 +3,7 @@
 
 extern TFT_eSprite Disbuff;
 extern SemaphoreHandle_t lcd_draw_sem;
-TaskHandle_t xhandle_alarm_update_tasks[ALARM_MAX_NUM] = {[0 ... ALARM_MAX_NUM-1] = NULL};
+TaskHandle_t xhandle_alarm_update_tasks[ALARM_MAX_NUM] = {NULL};
 
 void AlarmUpdateTask(void *arg);
 
@@ -53,13 +53,27 @@ void Alarm::ButtonsUpdate(SysTypeDef *SysAttr)
 		this->DisplayCurAlarmTime();
 	}
 	else if (M5.BtnB.wasReleasefor(500)) {
-		if (xhandle_alarm_update_tasks[this->CurAlarmData.Index] == NULL) {
-			xTaskCreate(AlarmUpdateTask, "AlarmUpdateTask", 1024, \
-				(void*)0, 7, &xhandle_alarm_update_tasks[this->CurAlarmData.Index]
-			);
-		}
-		else {
-
+		/* Check the alarm status */
+		switch (this->AlarmList[this->CurAlarmData.Index]->Status) {
+			case ALARM_NOT_CREATED:
+				/* Create the alarm task and update the status */
+				xTaskCreate(AlarmUpdateTask, "AlarmUpdateTask", 1024, \
+					(void*)0, 7, &xhandle_alarm_update_tasks[this->CurAlarmData.Index]
+				);
+				this->AlarmList[this->CurAlarmData.Index]->Status = ALARM_WORKING;
+				break;
+			
+			case ALARM_WORKING:
+				vTaskSuspend(&xhandle_alarm_update_tasks[this->CurAlarmData.Index]);
+				this->AlarmList[this->CurAlarmData.Index]->Status = ALARM_SUSPENDED;
+				break;
+			
+			case ALARM_SUSPENDED:
+				vTaskResume(&xhandle_alarm_update_tasks[this->CurAlarmData.Index]);
+				this->AlarmList[this->CurAlarmData.Index]->Status = ALARM_WORKING;
+				break; 
+			
+			default: break;
 		}
 	}
 }
