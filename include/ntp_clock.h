@@ -11,7 +11,7 @@ public:
 
     void Init(SysTypeDef *SysAttr);
 
-    void LocalTimeUpdate(EventGroupHandle_t* Events_ptr);
+    void LocalTimeUpdate(EventGroupHandle_t *Events_ptr);
     void ButtonsUpdate(SysTypeDef *SysAttr);
 
     void DisplayFromNTP(struct tm *TimeInfo, TickType_t Tick = portMAX_DELAY);
@@ -40,15 +40,13 @@ private:
     time_t LastSyncTime;
 
     const char *ntpServer = "time1.aliyun.com";
-    const long gmtOffset_sec = 8 * 3600;
-    const int daylightOffset_sec = 3600;
+    const long gmtOffset_sec = 8 * 3600;    // GMT+8
+    const int daylightOffset_sec = 0;       // If has daylight saving time(DST), 3600 else 0
     const char *Weekdays[7] = {
-        "Sun", "Mon", "Tues", "Wed", "Thu", "Wed", "Sat"
-    };
+        "Sun", "Mon", "Tues", "Wed", "Thu", "Wed", "Sat"};
     const char *Months[12] = {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    };
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 };
 
 void NTPClockInitTask(void *arg);
