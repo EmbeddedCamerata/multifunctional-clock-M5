@@ -5,8 +5,8 @@
 #ifdef DEBUG_MODE
 const char *PageStr[4] = {
     "PAGE_WEATHER",
-	"PAGE_NTPCLOCK",
-	"PAGE_SET_ALARM",
+    "PAGE_NTPCLOCK",
+    "PAGE_SET_ALARM",
     "PAGE_TIMER"
 };
 #endif
@@ -28,239 +28,239 @@ SysPageType_e IMUJudge(float accX, float accY, float accZ);
 
 void SystemInit(SysTypeDef *SysAttr)
 {
-	// 1. LED
-	pinMode(M5_LED, OUTPUT);
-	digitalWrite(M5_LED, HIGH);
+    // 1. LED
+    pinMode(M5_LED, OUTPUT);
+    digitalWrite(M5_LED, HIGH);
 
-	// 2. IMU
+    // 2. IMU
     int rc = M5.IMU.Init(); /* return 0 is ok, return -1 is unknow */
-	if (rc < 0) {
-		Serial.printf("IMU init error: %d\n", rc);
-		return;
-	}
+    if (rc < 0) {
+        Serial.printf("IMU init error: %d\n", rc);
+        return;
+    }
 
-	// 3. Sytem page. Self-adaption rotation based on IMU
+    // 3. Sytem page. Self-adaption rotation based on IMU
 #ifdef SYSTEM_INITIAL_PAGE_SELF_ADAPTION
-	SysPageType_e page;
-	float accX, accY, accZ;
+    SysPageType_e page;
+    float accX, accY, accZ;
 
-	if ((page = IMUJudge(accX, accY, accZ)) != PAGE_UNKNOWN) {
-		SysAttr->SysPage = page;
-	}
-	else {
-		SysAttr->SysPage = SYSTEM_DEFAULT_PAGE;
-	}
+    if ((page = IMUJudge(accX, accY, accZ)) != PAGE_UNKNOWN) {
+        SysAttr->SysPage = page;
+    }
+    else {
+        SysAttr->SysPage = SYSTEM_DEFAULT_PAGE;
+    }
 #else
-	SysAttr->SysPage = SYSTEM_DEFAULT_PAGE;
+    SysAttr->SysPage = SYSTEM_DEFAULT_PAGE;
 #endif
 
 #ifdef DEBUG_MODE
-	Serial.println("System init OK");
+    Serial.println("System init OK");
 #endif
-	delay(500);
+    delay(500);
 
-	/* 4. Initialize 4 modules */
-	xTaskCreate(WiFiConnectTask, "WiFiConnectTask", 1024*2, \
-		(void*)SysAttr, 3, &xhandle_wifi_connect
-	);
+    /* 4. Initialize 4 modules */
+    xTaskCreate(WiFiConnectTask, "WiFiConnectTask", 1024*2, \
+        (void*)SysAttr, 3, &xhandle_wifi_connect
+    );
 
-	xTaskCreate(NTPClockInitTask, "NTPClockInitTask", 1024*2, \
-		(void*)SysAttr, 4, &xhandle_user_ntp_init
-	);
-	xTaskCreate(QWeatherInitTask, "QWeatherInitTask", 1024*4, \
-		(void*)SysAttr, 4, &xhandle_user_qweather_init
-	);
-	xTaskCreate(CountdownTimerInitTask, "CountdownTimerInitTask", 1024, \
-		(void*)SysAttr, 4, &xhandle_user_countdown_init
-	);
-	xTaskCreate(AlarmInitTask, "AlarmInitTask", 1024, \
-		(void*)SysAttr, 4, &xhandle_user_alarm_init
-	);
+    xTaskCreate(NTPClockInitTask, "NTPClockInitTask", 1024*2, \
+        (void*)SysAttr, 4, &xhandle_user_ntp_init
+    );
+    xTaskCreate(QWeatherInitTask, "QWeatherInitTask", 1024*4, \
+        (void*)SysAttr, 4, &xhandle_user_qweather_init
+    );
+    xTaskCreate(CountdownTimerInitTask, "CountdownTimerInitTask", 1024, \
+        (void*)SysAttr, 4, &xhandle_user_countdown_init
+    );
+    xTaskCreate(AlarmInitTask, "AlarmInitTask", 1024, \
+        (void*)SysAttr, 4, &xhandle_user_alarm_init
+    );
 }
 
 void PageUpdate(void *arg)
 {
-	SysTypeDef *SysAttr = (SysTypeDef*)arg;
-	SysPageType_e new_page;
-	float accX, accY, accZ;
-	
-	while(1) {
-		M5.IMU.getAccelData(&accX, &accY, &accZ);
+    SysTypeDef *SysAttr = (SysTypeDef*)arg;
+    SysPageType_e new_page;
+    float accX, accY, accZ;
 
-		if ((new_page = IMUJudge(accX, accY, accZ)) != PAGE_UNKNOWN) {
-			if (new_page != SysAttr->SysPage) {
-				PageChangRefresh(new_page);
-				SysAttr->SysPage = new_page;
-			}
-		}
-		
-		vTaskDelay(50 / portTICK_RATE_MS);
-	}
+    while(1) {
+        M5.IMU.getAccelData(&accX, &accY, &accZ);
+
+        if ((new_page = IMUJudge(accX, accY, accZ)) != PAGE_UNKNOWN) {
+            if (new_page != SysAttr->SysPage) {
+                PageChangRefresh(new_page);
+                SysAttr->SysPage = new_page;
+            }
+        }
+
+        vTaskDelay(50 / portTICK_RATE_MS);
+    }
 }
 
 static void PageChangRefresh(SysPageType_e NewPage)
 {
-	switch (NewPage) {
-		case PAGE_WEATHER:
-			/* Leave */
-			User_CountdownTimer.Leave();
-			User_NTPClock.Leave();
-			User_Alarm.Leave();
+    switch (NewPage) {
+        case PAGE_WEATHER:
+            /* Leave */
+            User_CountdownTimer.Leave();
+            User_NTPClock.Leave();
+            User_Alarm.Leave();
 
-			/* Suspend Clock display task */
-			if (xhandle_clock_display != NULL) {
-				vTaskSuspend(xhandle_clock_display);
-			}
+            /* Suspend Clock display task */
+            if (xhandle_clock_display != NULL) {
+                vTaskSuspend(xhandle_clock_display);
+            }
 
-			User_QWeather.OnMyPage();
+            User_QWeather.OnMyPage();
 
-			break;
+            break;
 
-		case PAGE_NTPCLOCK:
-			/* Leave */
-			User_CountdownTimer.Leave();
-			User_QWeather.Leave();
-			User_Alarm.Leave();
+        case PAGE_NTPCLOCK:
+            /* Leave */
+            User_CountdownTimer.Leave();
+            User_QWeather.Leave();
+            User_Alarm.Leave();
 
-			if (xhandle_clock_display != NULL) {
-				vTaskResume(xhandle_clock_display);
-			}
+            if (xhandle_clock_display != NULL) {
+                vTaskResume(xhandle_clock_display);
+            }
 
-			User_NTPClock.OnMyPage();
+            User_NTPClock.OnMyPage();
 
-			break;
-		
-		case PAGE_SET_ALARM:
-			/* Leave */
-			User_CountdownTimer.Leave();
-			User_NTPClock.Leave();
-			User_QWeather.Leave();
-			
-			/* Suspend Clock display task */
-			if (xhandle_clock_display != NULL) {
-				vTaskSuspend(xhandle_clock_display);
-			}
-			
-			User_Alarm.OnMyPage();
+            break;
 
-			break;
-		
-		case PAGE_TIMER:
-			/* Leave */
-			User_NTPClock.Leave();
-			User_QWeather.Leave();
-			User_Alarm.Leave();
-			/*
-				Suspend tasks of other pages
-			*/
-			// 1. Clock display task
-			if (xhandle_clock_display != NULL) {
-				vTaskSuspend(xhandle_clock_display);
-			}
+        case PAGE_SET_ALARM:
+            /* Leave */
+            User_CountdownTimer.Leave();
+            User_NTPClock.Leave();
+            User_QWeather.Leave();
 
-			/* Tell user_coundown that it is on my page */
-			User_CountdownTimer.OnMyPage();
-			break;
-		
-		default: break;
-	}
-	
+            /* Suspend Clock display task */
+            if (xhandle_clock_display != NULL) {
+                vTaskSuspend(xhandle_clock_display);
+            }
+
+            User_Alarm.OnMyPage();
+
+            break;
+
+        case PAGE_TIMER:
+            /* Leave */
+            User_NTPClock.Leave();
+            User_QWeather.Leave();
+            User_Alarm.Leave();
+            /*
+                Suspend tasks of other pages
+            */
+            // 1. Clock display task
+            if (xhandle_clock_display != NULL) {
+                vTaskSuspend(xhandle_clock_display);
+            }
+
+            /* Tell user_coundown that it is on my page */
+            User_CountdownTimer.OnMyPage();
+            break;
+
+        default: break;
+    }
+
 #ifdef DEBUG_MODE
-	Serial.println(PageStr[NewPage]);
+    Serial.println(PageStr[NewPage]);
 #endif
 }
 
 void ButtonsUpdate(void *arg)
 {
-	SysTypeDef *SysAttr = (SysTypeDef*)arg;
+    SysTypeDef *SysAttr = (SysTypeDef*)arg;
 
     while (1) {
         M5.update();
 
         switch (SysAttr->SysPage) {
-			case PAGE_WEATHER:
-				User_QWeather.ButtonsUpdate(SysAttr);
-				break;
+            case PAGE_WEATHER:
+                User_QWeather.ButtonsUpdate(SysAttr);
+                break;
 
-			case PAGE_NTPCLOCK:
-				User_NTPClock.ButtonsUpdate(SysAttr);
+            case PAGE_NTPCLOCK:
+                User_NTPClock.ButtonsUpdate(SysAttr);
 
-				break;
-			
-			case PAGE_SET_ALARM:
-				User_Alarm.ButtonsUpdate(SysAttr);
-				break;
+                break;
 
-			case PAGE_TIMER:
-				User_CountdownTimer.ButtonsUpdate();
-				break;
-			
-			default: break;
-		}
+            case PAGE_SET_ALARM:
+                User_Alarm.ButtonsUpdate(SysAttr);
+                break;
 
-		vTaskDelay(100 / portTICK_RATE_MS);
+            case PAGE_TIMER:
+                User_CountdownTimer.ButtonsUpdate();
+                break;
+
+            default: break;
+        }
+
+        vTaskDelay(100 / portTICK_RATE_MS);
     }
 }
 
 /* TODO Smartconfig support. */
 void WiFiConnectTask(void *arg)
 {
-	EventGroupHandle_t events = ((SysTypeDef*)arg)->SysEvents;
-	unsigned long dt;
+    EventGroupHandle_t events = ((SysTypeDef*)arg)->SysEvents;
+    unsigned long dt;
 
-	Serial.printf("Connecting to %s\n", WIFI_SSID);
-	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-	
-	dt = millis();
-	while (WiFi.status() != WL_CONNECTED) {
+    Serial.printf("Connecting to %s\n", WIFI_SSID);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    dt = millis();
+    while (WiFi.status() != WL_CONNECTED) {
         vTaskDelay(500);
         Serial.print(".");
 
-		if (millis() - dt > WIFI_CONNECTION_TIMEOUT * 1000UL) {
-			Serial.println("\nWiFi connected failed! Please check ssid and password!");
-			goto end;
-		}
+        if (millis() - dt > WIFI_CONNECTION_TIMEOUT * 1000UL) {
+            Serial.println("\nWiFi connected failed! Please check ssid and password!");
+            goto end;
+        }
     }
-    
-	Serial.println("\nConnected!");
 
-	xEventGroupSetBits(events, EVENT_WIFI_CONNECTED);
+    Serial.println("\nConnected!");
+
+    xEventGroupSetBits(events, EVENT_WIFI_CONNECTED);
 
 end:
-	vTaskDelete(NULL);
+    vTaskDelete(NULL);
 }
 
 void PowerDisplay()
 {
-	int disCharge; // Battery output current
-	float vbat = 0.0;	// Battery voltage value
-	float ibat = 0.0;
-	float bat;	// Current Power
-	int Vaps;	// Battery capacity
-	float temp;	// Battery temperature
-	
-	disCharge = M5.Axp.GetIdischargeData() / 2;	// Need test without serial
-	vbat = M5.Axp.GetBatVoltage();				// 4.19V
-	ibat = M5.Axp.GetBatCurrent();				// Need test without serial
-	bat = M5.Axp.GetBatPower();					// Need test without serial
-	Vaps = M5.Axp.GetVapsData();				// 3567? 
-	temp = M5.Axp.GetTempInAXP192(); 			// 44.00
+    int disCharge; // Battery output current
+    float vbat = 0.0;	// Battery voltage value
+    float ibat = 0.0;
+    float bat;	// Current Power
+    int Vaps;	// Battery capacity
+    float temp;	// Battery temperature
+
+    disCharge = M5.Axp.GetIdischargeData() / 2;	// Need test without serial
+    vbat = M5.Axp.GetBatVoltage();				// 4.19V
+    ibat = M5.Axp.GetBatCurrent();				// Need test without serial
+    bat = M5.Axp.GetBatPower();					// Need test without serial
+    Vaps = M5.Axp.GetVapsData();				// 3567?
+    temp = M5.Axp.GetTempInAXP192(); 			// 44.00
 
 #ifdef DEBUG_MODE
-	Serial.printf("V/I: %.2f/%.2f\n", vbat, ibat);
-	Serial.printf("Temp: %.2f\n", temp);
+    Serial.printf("V/I: %.2f/%.2f\n", vbat, ibat);
+    Serial.printf("Temp: %.2f\n", temp);
 #endif
 
-	// xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
-	// Disbuff.setTextSize(1);
-	// Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH, Disbuff.fontHeight(), TFT_BLACK);
-	// Disbuff.setCursor(10, 10);
-	// Disbuff.setTextColor(TFT_RED);
+    // xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
+    // Disbuff.setTextSize(1);
+    // Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH, Disbuff.fontHeight(), TFT_BLACK);
+    // Disbuff.setCursor(10, 10);
+    // Disbuff.setTextColor(TFT_RED);
 
-	// Disbuff.printf("V/I/B: %.2f/%.2f/%.2f\n", vbat, ibat, bat);
+    // Disbuff.printf("V/I/B: %.2f/%.2f/%.2f\n", vbat, ibat, bat);
 
-	// Disbuff.pushSprite(0, 0);
-	// xSemaphoreGive(lcd_draw_sem);
+    // Disbuff.pushSprite(0, 0);
+    // xSemaphoreGive(lcd_draw_sem);
 }
 
 SysPageType_e IMUJudge(float accX, float accY, float accZ)

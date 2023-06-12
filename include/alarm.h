@@ -17,74 +17,74 @@
 /* Indicate which number is ready to change */
 typedef enum
 {
-	HOUR_HIGH = 0U,
-	HOUR_LOW,
-	MINUTE_HIGH,
-	MINUTE_LOW,
+    HOUR_HIGH = 0U,
+    HOUR_LOW,
+    MINUTE_HIGH,
+    MINUTE_LOW,
 } CurPointingLocType_e;
 
 typedef enum
 {
-	ALARM_NOT_CREATED = 0U,
-	ALARM_WORKING,
-	ALARM_SUSPENDED
+    ALARM_NOT_CREATED = 0U,
+    ALARM_WORKING,
+    ALARM_SUSPENDED
 } AlarmStatusType_e;
 
 typedef enum
 {
-	ALARM_MINUTE_UPDATE = 0U,
-	ALARM_HOUR_UPDATE
+    ALARM_MINUTE_UPDATE = 0U,
+    ALARM_HOUR_UPDATE
 } AlarmModeType_e;
 
 /* Save the alarm info */
 typedef struct
 {
-	uint8_t Hours;
+    uint8_t Hours;
     uint8_t Minutes;
-	AlarmStatusType_e Status;
+    AlarmStatusType_e Status;
 } AlarmInfoTypeDef;
 
 typedef struct
 {
-	AlarmInfoTypeDef AlarmTime;
-	int Index;
+    AlarmInfoTypeDef AlarmTime;
+    int Index;
 } CurAlarmDataTypedef;
 
 class Alarm
 {
 public:
-	Alarm();
+    Alarm();
 
-	void Init(SysPageType_e Page);
-	void ButtonsUpdate(SysTypeDef *SysAttr);
-	void OnMyPage();
+    void Init(SysPageType_e Page);
+    void ButtonsUpdate(SysTypeDef *SysAttr);
+    void OnMyPage();
     void Leave();
 
-	void AddAlarm();
-	void RemoveAlarm();
-	void ReadAlarmData();
-	void ChangeAlarmTime();
-	void NextCurPointingLoc();
-	void NextAlarm();
+    void AddAlarm();
+    void RemoveAlarm();
+    void ReadAlarmData();
+    void ChangeAlarmTime();
+    void NextCurPointingLoc();
+    void NextAlarm();
 
-	inline void Inited() { this->isInited = true; };
-	inline bool IsOnMyPage() { return this->isOnMyPage; };
+    inline void Inited() { this->isInited = true; };
+    inline bool IsOnMyPage() { return this->isOnMyPage; };
 
 private:
-	void TFTRecreate();
-	
-	void DisplayCurAlarmTime();
-	void DisplayAlarmStatus();
+    void TFTRecreate();
 
-	int GetWorkingAlarmNum();
+    void DisplayCurAlarmTime();
+    void DisplayAlarmStatus();
 
-	bool isInited;
-	bool isOnMyPage;
-	bool CurAlarmReload;
-	CurPointingLocType_e CurPointingLoc;
+    int GetWorkingAlarmNum();
 
-	CurAlarmDataTypedef CurAlarmData;
-	AlarmInfoTypeDef *AlarmList[ALARM_MAX_NUM];
+    bool isInited;
+    bool isOnMyPage;
+    bool CurAlarmReload;
+    CurPointingLocType_e CurPointingLoc;
+
+    CurAlarmDataTypedef CurAlarmData;
+    AlarmInfoTypeDef *AlarmList[ALARM_MAX_NUM];
 };
 
 void AlarmInitTask(void *arg);

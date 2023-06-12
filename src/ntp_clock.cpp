@@ -25,7 +25,7 @@ void NTPClock::Init(SysTypeDef *SysAttr)
     }
 
     configTime(this->gmtOffset_sec, this->daylightOffset_sec, this->ntpServer);
-        
+
     if (!this->SyncLocalTime(&timeinfo)) {
         do {
             _try_time++;
@@ -52,7 +52,7 @@ void NTPClock::Init(SysTypeDef *SysAttr)
         this->TFTRecreate();
         this->DisplayFromNTP(&timeinfo);
     }
-    
+
     this->isInited = true;
 }
 
@@ -60,7 +60,7 @@ void NTPClock::LocalTimeUpdate(EventGroupHandle_t* Events_ptr)
 {
     int _try_time = 0;
     struct tm timeinfo;
-    
+
     if (!this->SyncLocalTime(&timeinfo)) {
         do {
             _try_time++;
@@ -73,7 +73,7 @@ void NTPClock::LocalTimeUpdate(EventGroupHandle_t* Events_ptr)
             }
         } while (!this->SyncLocalTime(&timeinfo));
     }
-    
+
     if (this->isOnMyPage) {
         this->DisplayFromNTP(&timeinfo, (TickType_t)10);
     }
@@ -86,7 +86,7 @@ void NTPClock::ButtonsUpdate(SysTypeDef *SysAttr)
         this->LocalTimeUpdate(&(SysAttr->SysEvents));
     }
     else if (M5.BtnB.wasReleased()) {
-        
+
     }
 }
 
@@ -115,7 +115,7 @@ bool NTPClock::SyncLocalTime(struct tm *TimeInfo)
 
     SetRTC(TimeInfo);
     this->LastSyncTime = mktime(TimeInfo);
-    
+
 #ifdef DEBUG_MODE
     Serial.println(TimeInfo, "%A, %B %d \n%Y %H:%M:%S");  // Screen prints date and time.
 #endif
@@ -130,7 +130,7 @@ void NTPClock::TFTRecreate()
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
     if (Disbuff.width() != TFT_LANDSCAPE_WIDTH) {
         Disbuff.deleteSprite();
-		Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
+        Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
     }
 
     Disbuff.fillRect(0, 0, TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT, TFT_BLACK);
@@ -141,24 +141,24 @@ void NTPClock::TFTRecreate()
 void NTPClock::DisplayFromNTP(struct tm *TimeInfo, TickType_t Tick)
 {
     xSemaphoreTake(lcd_draw_sem, Tick);
-    
+
     this->TimeDisplay(TimeInfo->tm_hour, TimeInfo->tm_min);
     if (this->isDisplayingDate) {
         this->DateDisplay(TimeInfo->tm_mon, TimeInfo->tm_wday, TimeInfo->tm_mday);
     }
-	
+
     xSemaphoreGive(lcd_draw_sem);
 }
 
 void NTPClock::DisplayFromRTC(bool ChimeEnable, TickType_t Tick)
 {
     RTC_DateTypeDef DateStruct;
-	RTC_TimeTypeDef TimeStruct;
+    RTC_TimeTypeDef TimeStruct;
 
     M5.Rtc.GetTime(&TimeStruct);
 
-	xSemaphoreTake(lcd_draw_sem, Tick);
-    
+    xSemaphoreTake(lcd_draw_sem, Tick);
+
     if (ChimeEnable) {
         if (TimeStruct.Seconds == 0) {
             this->TimeDisplay(TimeStruct.Hours, TimeStruct.Minutes);
@@ -172,7 +172,7 @@ void NTPClock::DisplayFromRTC(bool ChimeEnable, TickType_t Tick)
         M5.Rtc.GetData(&DateStruct);
         this->DateDisplay(DateStruct.Month, DateStruct.WeekDay, DateStruct.Date);
     }
-	
+
     xSemaphoreGive(lcd_draw_sem);
 }
 
@@ -190,15 +190,15 @@ void NTPClock::TimeDisplay(int hour, int minute)
         Disbuff.textWidth("99:99"), Disbuff.fontHeight(),       \
         TFT_BLACK
     );
-	
-	Disbuff.setCursor(
+
+    Disbuff.setCursor(
         TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2,   \
-		TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2
+        TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2
     );
-	
+
     Disbuff.setTextColor(TFT_RED);
-	Disbuff.printf("%02d:%02d", hour, minute);
-	Disbuff.pushSprite(0, 0);
+    Disbuff.printf("%02d:%02d", hour, minute);
+    Disbuff.pushSprite(0, 0);
 }
 
 void NTPClock::DateDisplay(uint8_t Month, uint8_t Weekday, uint8_t Date)
@@ -246,7 +246,7 @@ void ClockDisplayTask(void *arg)
             User_NTPClock.LocalTimeUpdate(&(SysAttr->SysEvents));
         }
 #endif
-        
+
         if (User_NTPClock.IsOnMyPage()) {
             User_NTPClock.DisplayFromRTC(true, portMAX_DELAY);
         }
@@ -260,7 +260,7 @@ void NTPClockInitTask(void *arg) // TODO
 {
     SysTypeDef *SysAttr = (SysTypeDef*)arg;
     EventBits_t bits;
-    
+
     bits = xEventGroupWaitBits(
         SysAttr->SysEvents,
         EVENT_WIFI_CONNECTED,
@@ -268,11 +268,11 @@ void NTPClockInitTask(void *arg) // TODO
         pdTRUE,
         (WIFI_CONNECTION_TIMEOUT * 1000UL) / portTICK_RATE_MS
     );
-    
-    if (bits & EVENT_WIFI_CONNECTED) 
+
+    if (bits & EVENT_WIFI_CONNECTED)
     {
         User_NTPClock.Init(SysAttr);
-    } 
+    }
     else {
 
     }

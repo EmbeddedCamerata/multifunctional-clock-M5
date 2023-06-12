@@ -7,7 +7,7 @@ hw_timer_t *timer1s(uint8_t num, void (*fn)(void), bool autoreload)
     timerStop(timer);
     timerAttachInterrupt(timer, fn, false);
     timerAlarmWrite(timer, 1000000, autoreload);
-    timerAlarmEnable(timer); 
+    timerAlarmEnable(timer);
     timerRestart(timer);
     timerStart(timer);
 
@@ -20,7 +20,7 @@ hw_timer_t *timer1m(uint8_t num, void (*fn)(void), bool autoreload)
     timerStop(timer);
     timerAttachInterrupt(timer, fn, false);
     timerAlarmWrite(timer, 60000000, autoreload);
-    timerAlarmEnable(timer); 
+    timerAlarmEnable(timer);
     timerRestart(timer);
     timerStart(timer);
 

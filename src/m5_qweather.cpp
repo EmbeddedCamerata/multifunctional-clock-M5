@@ -169,7 +169,7 @@ void QWeather::DisplayCurWeather()
         TFT_VERTICAL_WIDTH / 2 - Disbuff.textWidth("Temp") / 2,
         10 - Disbuff.fontHeight() / 2);
     Disbuff.print("Temp");
-    
+
     Disbuff.setTextSize(4);
     Disbuff.setTextColor(TFT_RED);
 
@@ -376,9 +376,9 @@ bool QWeather::ParseCurWeather(String Payload)
         return false;
     }
 
-    if (doc["code"].as<int>() != 200)
+    if (doc["code"].as<int>() != HTTP_CODE_OK)
     {
-        Serial.println("Current weather request failed!");
+        Serial.printf("Current weather request failed! %d\n", doc["code"].as<int>());
         return false;
     }
 
@@ -417,9 +417,9 @@ bool QWeather::ParseCurAirQuality(String Payload)
         return false;
     }
 
-    if (doc["code"].as<int>() != 200)
+    if (doc["code"].as<int>() != HTTP_CODE_OK)
     {
-        Serial.println("Current air quality request failed!");
+        Serial.printf("Current air quality request failed! %d\n", doc["code"].as<int>());
         return false;
     }
 

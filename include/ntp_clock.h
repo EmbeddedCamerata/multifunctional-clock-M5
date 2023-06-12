@@ -40,8 +40,8 @@ private:
     time_t LastSyncTime;
 
     const char *ntpServer = "time1.aliyun.com";
-    const long gmtOffset_sec = 8 * 3600;    // GMT+8
-    const int daylightOffset_sec = 0;       // If has daylight saving time(DST), 3600 else 0
+    const long gmtOffset_sec = 8 * 3600; // GMT+8
+    const int daylightOffset_sec = 0;    // If has daylight saving time(DST), 3600 else 0
     const char *Weekdays[7] = {
         "Sun", "Mon", "Tues", "Wed", "Thu", "Wed", "Sat"};
     const char *Months[12] = {
