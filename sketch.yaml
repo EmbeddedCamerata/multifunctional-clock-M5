@@ -1,0 +1,10 @@
+profiles:
+  multifunctional-clock-M5:
+    notes: See https://arduino.github.io/arduino-cli/0.33/sketch-project-file/ for details and usages.
+    fqbn: m5stack:esp32:m5stick-c-plus
+    platforms:
+      - platform: m5stack:esp32 (2.0.7)
+        platform_index_url: https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/arduino/package_m5stack_index.json
+    libraries:
+      - ArduinoJson (6.21.2)
+      - M5StickCPlus (0.0.8)
