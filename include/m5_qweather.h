@@ -52,11 +52,11 @@ public:
     void OnMyPage();
     void Leave();
 
-    bool GetCurWeather(EventGroupHandle_t* Events_ptr);
-    bool GetCurAirQuality(EventGroupHandle_t* Events_ptr);
+    bool GetCurWeather(EventGroupHandle_t *Events_ptr);
+    bool GetCurAirQuality(EventGroupHandle_t *Events_ptr);
 
-    void CurWeatherUpdate(EventGroupHandle_t* Events_ptr);
-    void CurAirQualityUpdate(EventGroupHandle_t* Events_ptr);
+    void CurWeatherUpdate(EventGroupHandle_t *Events_ptr);
+    void CurAirQualityUpdate(EventGroupHandle_t *Events_ptr);
 
     void DisplaySubPage();
 

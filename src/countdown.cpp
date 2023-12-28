@@ -67,7 +67,7 @@ void CountdownTimer::Stop(TimeUpType_e TimeUpType)
 {
     this->isActivated = this->isWorking = false;
 
-#ifdef RESET_TO_THE_BEGINNING
+#ifdef RESET_TO_THE_SET_TIME
     this->cur_min = this->set_min;
     this->cur_sec = this->set_sec;
 #else

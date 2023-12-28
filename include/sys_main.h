@@ -6,19 +6,19 @@
 typedef enum SysPage
 {
     /* Vertical, Rotation(0) */
-    PAGE_WEATHER = 0U,  /* W */
+    PAGE_WEATHER = 0U, /* W */
     /* Left landscape, Rotation(1) */
-    PAGE_NTPCLOCK,      /* C */
+    PAGE_NTPCLOCK, /* C */
     /* Vertical reversed, Rotation(2) */
-    PAGE_SET_ALARM,     /* X from left to right; Y from top to bottom. */
+    PAGE_SET_ALARM, /* X from left to right; Y from top to bottom. */
     /* Right landscape, Rotation(3) */
-    PAGE_TIMER,         /* T */
+    PAGE_TIMER, /* T */
     PAGE_UNKNOWN
 } SysPageType_e;
 
 typedef struct SysAttr
 {
-    SysPageType_e SysPage;            /* System page */
+    SysPageType_e SysPage; /* System page */
     EventGroupHandle_t SysEvents;
 } SysTypeDef;
 
