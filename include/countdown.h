@@ -5,8 +5,8 @@
 
 typedef enum
 {
-    RESET_BY_USER_TIMEUP = 0U,
-    NORMAL_TIMEUP
+    RESET_BY_USER = 0U,
+    NORMAL
 } TimeUpType_e;
 
 class CountdownTimer
@@ -36,10 +36,11 @@ private:
     void TFTRecreate();
     void StaticDisplay(uint8_t mins, uint8_t secs);
     void UpdateDisplay();
-    void StatusPromptDisplay(const char* StrToShow);
+    void StatusPromptDisplay(const char *StrToShow);
+    void DisplayAfterTimeUp(TimeUpType_e TimeUpType);
 
-    bool isActivated;   // Whether it starts counting down
-    bool isWorking;     // Whether it is counting down
+    bool isActivated; // Whether it starts counting down
+    bool isWorking;   // Whether it is counting down
     bool isOnMyPage;
     uint8_t set_min, set_sec;
     uint8_t cur_min, cur_sec;

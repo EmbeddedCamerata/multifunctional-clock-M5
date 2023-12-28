@@ -7,18 +7,18 @@ TaskHandle_t xhandle_countdown_timer_update = NULL;
 
 static void CountdownTimerUpdateTask(void *arg);
 
-CountdownTimer::CountdownTimer() :          \
-    isActivated(0),						    \
-    isWorking(0),                           \
-    isOnMyPage(0),                          \
-    set_min(COUNTDOWN_TIMER_DEFAULT_MIN),   \
-    set_sec(COUNTDOWN_TIMER_DEFAULT_SEC),   \
-    cur_min(COUNTDOWN_TIMER_DEFAULT_MIN),   \
-    cur_sec(COUNTDOWN_TIMER_DEFAULT_SEC) {}
+CountdownTimer::CountdownTimer() : isActivated(0),
+                                   isWorking(0),
+                                   isOnMyPage(0),
+                                   set_min(COUNTDOWN_TIMER_DEFAULT_MIN),
+                                   set_sec(COUNTDOWN_TIMER_DEFAULT_SEC),
+                                   cur_min(COUNTDOWN_TIMER_DEFAULT_MIN),
+                                   cur_sec(COUNTDOWN_TIMER_DEFAULT_SEC) {}
 
 void CountdownTimer::Init(SysPageType_e Page)
 {
-    if (Page == PAGE_TIMER) {
+    if (Page == PAGE_TIMER)
+    {
         this->OnMyPage();
     }
 }
@@ -29,15 +29,16 @@ void CountdownTimer::Begin(uint8_t mins, uint8_t secs)
     this->set_min = this->cur_min = mins;
     this->set_sec = this->cur_sec = secs;
 
-    xTaskCreate(CountdownTimerUpdateTask, "CountdownTimerUpdateTask", 1024*2, \
-        (void*)0, 6, &xhandle_countdown_timer_update);
+    xTaskCreate(CountdownTimerUpdateTask, "CountdownTimerUpdateTask", 1024 * 2,
+                (void *)0, 6, &xhandle_countdown_timer_update);
 }
 
 void CountdownTimer::Pause()
 {
     this->isWorking = false;
 
-    if (xhandle_countdown_timer_update != NULL) {
+    if (xhandle_countdown_timer_update != NULL)
+    {
         vTaskSuspend(xhandle_countdown_timer_update);
 #ifdef DEBUG_MODE
         Serial.println("Pause!");
@@ -51,7 +52,8 @@ void CountdownTimer::Resume()
 {
     this->isWorking = true;
 
-    if (xhandle_countdown_timer_update != NULL) {
+    if (xhandle_countdown_timer_update != NULL)
+    {
         vTaskResume(xhandle_countdown_timer_update);
 #ifdef DEBUG_MODE
         Serial.println("Resume!");
@@ -63,13 +65,6 @@ void CountdownTimer::Resume()
 
 void CountdownTimer::Stop(TimeUpType_e TimeUpType)
 {
-    if (xhandle_countdown_timer_update != NULL) {
-        vTaskDelete(xhandle_countdown_timer_update);
-    }
-
-    /* Turn off the LED */
-    digitalWrite(M5_LED, HIGH);
-
     this->isActivated = this->isWorking = false;
 
 #ifdef RESET_TO_THE_BEGINNING
@@ -80,33 +75,17 @@ void CountdownTimer::Stop(TimeUpType_e TimeUpType)
     this->set_sec = this->cur_sec = COUNTDOWN_TIMER_DEFAULT_SEC;
 #endif
 
-    xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-    this->StaticDisplay(this->set_min, this->set_sec);
-    xSemaphoreGive(lcd_draw_sem);
+    if (xhandle_countdown_timer_update == xTaskGetCurrentTaskHandle() and !this->isOnMyPage)
+    {
+    }
+    else
+    {
+        // Entering into Stop() from ButtonsUpdate() only happens in my page
+        this->DisplayAfterTimeUp(TimeUpType);
+    }
 
-    if (xhandle_countdown_timer_update != xTaskGetCurrentTaskHandle()) {
-        /*
-            Entering into Stop() from function ButtonsUpdate.
-            Only happens when in my page.
-        */
-        if (TimeUpType == RESET_BY_USER_TIMEUP) {
-            this->StatusPromptDisplay("Reset");
-        }
-        else {
-            this->StatusPromptDisplay("Time up!");
-        }
-    }
-    else {
-        /* Entering into Stop() from task CountdownUpdateTask */
-        if (this->isOnMyPage) {
-            if (TimeUpType == RESET_BY_USER_TIMEUP) {
-                this->StatusPromptDisplay("Reset");
-            }
-            else {
-                this->StatusPromptDisplay("Time up!");
-            }
-        }
-    }
+    /* Turn off the LED */
+    digitalWrite(M5_LED, HIGH);
 }
 
 void CountdownTimer::OnMyPage()
@@ -126,36 +105,44 @@ void CountdownTimer::TimerUpdate()
     this->cur_min = (this->cur_sec == 0) ? this->cur_min - 1 : this->cur_min;
     this->cur_sec = (this->cur_sec == 0) ? 59 : this->cur_sec - 1;
 
-    if (this->isOnMyPage) {
+    if (this->isOnMyPage)
+    {
         xSemaphoreTake(lcd_draw_sem, (TickType_t)10);
         this->StaticDisplay(this->cur_min, this->cur_sec);
         xSemaphoreGive(lcd_draw_sem);
     }
 
-    if (this->cur_min == 0 and this->cur_sec == 0) {
-        this->Stop(NORMAL_TIMEUP);
+    if (this->cur_min == 0 and this->cur_sec == 0)
+    {
+        this->Stop(NORMAL);
     }
 }
 
 void CountdownTimer::ButtonsUpdate()
 {
     /* Buttons judgement in working */
-    if (this->isActivated) {
-        if (M5.BtnA.wasReleased()) {
-            if (this->isWorking) {
+    if (this->isActivated)
+    {
+        if (M5.BtnA.wasReleased())
+        {
+            if (this->isWorking)
+            {
                 this->Pause();
             }
-            else {
+            else
+            {
                 this->Resume();
             }
         }
-        else if (M5.BtnA.wasReleasefor(500)) {
+        else if (M5.BtnA.wasReleasefor(500))
+        {
             /* Reset */
-            this->Stop(RESET_BY_USER_TIMEUP);
+            this->Stop(RESET_BY_USER);
         }
     }
     /* Buttons judgement in idle */
-    else {
+    else
+    {
         this->SetCoundown();
     }
 }
@@ -165,7 +152,8 @@ void CountdownTimer::TFTRecreate()
     M5.Lcd.setRotation(PAGE_TIMER);
 
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
-    if (Disbuff.width() != TFT_LANDSCAPE_WIDTH) {
+    if (Disbuff.width() != TFT_LANDSCAPE_WIDTH)
+    {
         Disbuff.deleteSprite();
         Disbuff.createSprite(TFT_LANDSCAPE_WIDTH, TFT_LANDSCAPE_HEIGHT);
     }
@@ -183,16 +171,15 @@ void CountdownTimer::StaticDisplay(uint8_t mins, uint8_t secs)
     Disbuff.setTextSize(4);
     Disbuff.setTextColor(TFT_RED);
     Disbuff.fillRect(
-        TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2,	\
-        TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2,    	\
-        Disbuff.textWidth("99:99"), Disbuff.fontHeight(),   	\
-        TFT_BLACK
-    );
+        TFT_LANDSCAPE_WIDTH / 2 - Disbuff.textWidth("99:99") / 2,
+        TFT_LANDSCAPE_HEIGHT / 2 - Disbuff.fontHeight() / 2,
+        Disbuff.textWidth("99:99"), Disbuff.fontHeight(),
+        TFT_BLACK);
 
     Disbuff.setCursor(
-        TFT_LANDSCAPE_WIDTH/2 - Disbuff.textWidth("99:99")/2, 	\
-        TFT_LANDSCAPE_HEIGHT/2 - Disbuff.fontHeight()/2
-    );
+        TFT_LANDSCAPE_WIDTH / 2 - Disbuff.textWidth("99:99") / 2,
+        TFT_LANDSCAPE_HEIGHT / 2 - Disbuff.fontHeight() / 2);
+
     Disbuff.printf("%02d:%02d", mins, secs);
     Disbuff.pushSprite(0, 0);
 }
@@ -209,15 +196,18 @@ void CountdownTimer::UpdateDisplay()
 {
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
 
-    if (this->isActivated) {
+    if (this->isActivated)
+    {
         this->StaticDisplay(this->cur_min, this->cur_sec);
     }
-    else if (this->set_min != COUNTDOWN_TIMER_DEFAULT_MIN or \
-            this->set_sec != COUNTDOWN_TIMER_DEFAULT_SEC) {
+    else if (this->set_min != COUNTDOWN_TIMER_DEFAULT_MIN or
+             this->set_sec != COUNTDOWN_TIMER_DEFAULT_SEC)
+    {
         /* Idle but changed */
         this->StaticDisplay(this->set_min, this->set_sec);
     }
-    else {
+    else
+    {
         /* Idle */
         this->StaticDisplay(COUNTDOWN_TIMER_DEFAULT_MIN, COUNTDOWN_TIMER_DEFAULT_SEC);
     }
@@ -232,76 +222,107 @@ void CountdownTimer::StatusPromptDisplay(const char *StrToShow)
     Disbuff.setCursor(10, 10);
     Disbuff.setTextSize(2);
     Disbuff.setTextColor(TFT_WHITE);
-    Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH/2, Disbuff.fontHeight(), TFT_BLACK);
+    Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH / 2, Disbuff.fontHeight(), TFT_BLACK);
     Disbuff.print(StrToShow);
     Disbuff.pushSprite(0, 0);
 
     xSemaphoreGive(lcd_draw_sem);
 
-    vTaskDelay(800 / portTICK_RATE_MS);
+    vTaskDelay(700 / portTICK_RATE_MS);
 
     xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
 
-    Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH/2, Disbuff.fontHeight(), TFT_BLACK);
+    Disbuff.fillRect(10, 10, TFT_LANDSCAPE_WIDTH / 2, Disbuff.fontHeight(), TFT_BLACK);
     Disbuff.pushSprite(0, 0);
 
+    if (this->isOnMyPage)
+    {
+        // xSemaphoreTake(lcd_draw_sem, portMAX_DELAY);
+        this->StaticDisplay(this->set_min, this->set_sec);
+        // xSemaphoreGive(lcd_draw_sem);
+    }
+
     xSemaphoreGive(lcd_draw_sem);
+}
+
+void CountdownTimer::DisplayAfterTimeUp(TimeUpType_e TimeUpType)
+{
+    if (TimeUpType == RESET_BY_USER)
+    {
+        this->StatusPromptDisplay("Reset");
+    }
+    else
+    {
+        this->StatusPromptDisplay("Time up!");
+    }
 }
 
 void CountdownTimer::SetCoundown()
 {
     bool isChanged = true;
 
-    if (M5.BtnA.wasReleased()) {
+    if (M5.BtnA.wasReleased())
+    {
         /* Short press of BtnA for +1 second */
-        if (this->set_sec == 59) {
+        if (this->set_sec == 59)
+        {
             this->set_sec = 0;
         }
-        else {
+        else
+        {
             this->set_sec++;
         }
 #ifdef DEBUG_MODE
         Serial.println("Button A released");
 #endif
     }
-    else if (M5.BtnA.wasReleasefor(500)) {
+    else if (M5.BtnA.wasReleasefor(500))
+    {
         /* Long press of BtnA for +10 seconds */
-        if (this->set_sec >= 50) {
+        if (this->set_sec >= 50)
+        {
             this->set_sec = 0;
         }
-        else {
+        else
+        {
             this->set_sec += 10;
         }
 #ifdef DEBUG_MODE
         Serial.println("Button A long released");
 #endif
     }
-    else if (M5.BtnB.wasReleased()) {
+    else if (M5.BtnB.wasReleased())
+    {
         /* Short press of BtnB for +1 minute */
-        if (this->set_min == 10) {
+        if (this->set_min == 10)
+        {
             this->set_min = 0;
         }
-        else {
+        else
+        {
             this->set_min++;
         }
     }
-    else if (M5.BtnB.wasReleasefor(500)) {
+    else if (M5.BtnB.wasReleasefor(500))
+    {
         /* Long press of BtnB for start */
         this->Begin(this->set_min, this->set_sec);
         isChanged = false;
     }
-    else {
+    else
+    {
         isChanged = false;
     }
 
-    if (isChanged) {
+    if (isChanged)
+    {
         this->UpdateDisplay();
     }
 }
 
 void CountdownTimerInitTask(void *arg)
 {
-    SysPageType_e page = ((SysTypeDef*)arg)->SysPage;
+    SysPageType_e page = ((SysTypeDef *)arg)->SysPage;
 
     User_CountdownTimer.Init(page);
     vTaskDelete(NULL);
@@ -311,11 +332,17 @@ static void CountdownTimerUpdateTask(void *arg)
 {
     // TickType_t last_tick = xTaskGetTickCount();
 
-    while(1) {
+    while (1)
+    {
         // xTaskDelayUntil(&last_tick, 1000 / portTICK_RATE_MS);
         vTaskDelay(1000 / portTICK_RATE_MS);
         digitalWrite(M5_LED, 1 - digitalRead(M5_LED));
         User_CountdownTimer.TimerUpdate();
+
+        if (User_CountdownTimer.IsStopped())
+        {
+            vTaskDelete(NULL);
+        }
     };
 }
 
